@@ -27,6 +27,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -1041,6 +1042,7 @@ private fun UsageScreen(api: Api, liveVersion: Int = 0) {
     var u by remember { mutableStateOf<JSONObject?>(null) }
     var error by remember { mutableStateOf("") }
     var page by remember { mutableStateOf(0) }
+    var window by remember { mutableStateOf(14) }
     LaunchedEffect(liveVersion) {
         runCatching { withContext(Dispatchers.IO) { api.get("/v1/me/usage") } }
             .onSuccess { u = it }
@@ -1108,8 +1110,20 @@ private fun UsageScreen(api: Api, liveVersion: Int = 0) {
                         Modifier.weight(1f))
                 }
             }
-            item { UsageBars("scans per day · last 14", d.optJSONArray("scans_by_day"), Accent) }
-            item { UsageBars("codes made per day · last 14", d.optJSONArray("codes_by_day"), Live) }
+            item {
+                Rule()
+                Row(Modifier.fillMaxWidth().padding(top = XS),
+                    horizontalArrangement = Arrangement.spacedBy(SM)) {
+                    listOf(7, 14, 30).forEach { w ->
+                        if (window == w) PrimaryButton("${w}d", Modifier.weight(1f)) {}
+                        else SecondaryButton("${w}d", Modifier.weight(1f)) { window = w }
+                    }
+                }
+            }
+            item { UsageBars("scans per day · last $window",
+                             d.optJSONArray("scans_by_day"), Accent, window) }
+            item { UsageBars("codes made per day · last $window",
+                             d.optJSONArray("codes_by_day"), Live, window) }
             item { Rule(); SectionTitle("most scanned") }
             items((0 until minOf(perPage, maxOf(0, total - page * perPage))).toList()) { i ->
                 val c = codes!!.getJSONObject(page * perPage + i)
@@ -1148,7 +1162,8 @@ private fun UsageScreen(api: Api, liveVersion: Int = 0) {
 /** Bars, not a line: these are counts per day, and a line between two days
  *  implies values in between that never existed. */
 @Composable
-private fun UsageBars(title: String, series: org.json.JSONArray?, colour: Color) {
+private fun UsageBars(title: String, series: org.json.JSONArray?, colour: Color,
+                      days: Int = 14) {
     // Zero-filled across a fixed 14-day window, not just the days that have
     // data. Plotting only the populated days made a single day of activity render
     // as one bar spanning the whole width — every bar takes an equal share, so
@@ -1160,7 +1175,7 @@ private fun UsageBars(title: String, series: org.json.JSONArray?, colour: Color)
         }
     }
     val today = java.time.LocalDate.now()
-    val points = (13 downTo 0).map { back ->
+    val points = ((days - 1) downTo 0).map { back ->
         val day = today.minusDays(back.toLong()).toString()
         day.takeLast(2) to (counts[day] ?: 0)
     }
@@ -1171,14 +1186,23 @@ private fun UsageBars(title: String, series: org.json.JSONArray?, colour: Color)
         return
     }
     val max = points.maxOf { it.second }.coerceAtLeast(1)
-    Row(Modifier.fillMaxWidth().height(96.dp),
+    // Fixed-width bars in a scrolling row rather than weight(1f) columns: at 30
+    // days an equal share is a hairline, and the whole point of a longer window
+    // is being able to read it. Newest is on the right, so the row opens at the
+    // most recent day.
+    val scroll = rememberScrollState()
+    LaunchedEffect(days, points.size) { scroll.scrollTo(scroll.maxValue) }
+    Row(Modifier.fillMaxWidth().height(100.dp).horizontalScroll(scroll),
         verticalAlignment = Alignment.Bottom,
-        horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        horizontalArrangement = Arrangement.spacedBy(5.dp)) {
         points.forEach { (label, value) ->
-            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally,
+            Column(Modifier.width(18.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Bottom) {
+                Text(if (value > 0) "$value" else "", fontFamily = Mono,
+                    fontSize = 8.sp, color = AppColors.muted)
                 Box(Modifier.fillMaxWidth()
-                    .height((value.toFloat() / max * 66f).dp.coerceAtLeast(2.dp))
+                    .height((value.toFloat() / max * 62f).dp.coerceAtLeast(2.dp))
                     .background(if (value > 0) colour else AppColors.line))
                 Spacer(Modifier.height(3.dp))
                 Text(label, fontFamily = Mono, fontSize = 8.sp, color = AppColors.muted)

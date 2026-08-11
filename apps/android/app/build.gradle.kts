@@ -16,7 +16,7 @@ android {
         // and MUST increase for every published build: the updater treats
         // "same code" as "already up to date", so a build shipped without a
         // bump reaches new downloads only and never existing installs.
-        versionCode = 17
+        versionCode = 18
         versionName = "1.0"
         // Point at your API. Default is the Android emulator's host alias.
         buildConfigField("String", "API_BASE",
