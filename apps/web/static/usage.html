@@ -128,14 +128,42 @@ async function load() {
   }
   $("chart-hours").innerHTML = bars("scans per hour · last 24", hours, "UTC");
 
+  renderTop(u.top_codes);
+}
+
+/* Most-scanned, paged. A long list of codes is still a list — it should not turn
+   the page into a scroll. */
+let topPage = 0;
+const TOP_PER_PAGE = 8;
+
+function renderTop(codes) {
+  if (!codes.length) {
+    $("top").innerHTML = `<p class="kicker">most scanned</p>
+      <p class="mono muted" style="font-size:11px">no codes yet</p>`;
+    return;
+  }
+  const pages = Math.max(1, Math.ceil(codes.length / TOP_PER_PAGE));
+  if (topPage >= pages) topPage = pages - 1;
+  const shown = codes.slice(topPage * TOP_PER_PAGE, topPage * TOP_PER_PAGE + TOP_PER_PAGE);
+
   $("top").innerHTML = `<p class="kicker">most scanned</p>
-    ${u.top_codes.length ? u.top_codes.map(c => `
+    ${shown.map(c => `
       <div class="mono" style="font-size:11px;display:flex;gap:12px;justify-content:space-between;
         border-bottom:1px solid rgba(32,30,29,.12);padding:7px 0">
         <span style="overflow-wrap:anywhere">${c.opaque_resolution_id}
           ${c.label ? "· " + c.label : ""} · ${c.state}</span>
-        <span>${c.scans}</span></div>`).join("")
-      : `<p class="mono muted" style="font-size:11px">no codes yet</p>`}`;
+        <span>${c.scans}</span></div>`).join("")}
+    ${pages > 1 ? `
+      <div style="display:flex;gap:12px;align-items:center;justify-content:center;margin-top:14px">
+        <button class="btn btn-secondary" id="tprev" ${topPage === 0 ? "disabled" : ""}>Previous</button>
+        <span class="mono muted" style="font-size:11px">page ${topPage + 1} of ${pages} · ${codes.length} codes</span>
+        <button class="btn btn-secondary" id="tnext" ${topPage >= pages - 1 ? "disabled" : ""}>Next</button>
+      </div>` : ""}`;
+
+  if (pages > 1) {
+    $("tprev").onclick = () => { topPage--; renderTop(codes); };
+    $("tnext").onclick = () => { topPage++; renderTop(codes); };
+  }
 }
 load();
 </script>

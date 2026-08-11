@@ -963,7 +963,8 @@ def create_app(keys_dir: str | Path = "dev-keys", db_url: str | None = None,
             "scans_by_day": [{"day": d, "count": c} for d, c in sorted(by_day.items())],
             "scans_by_hour": [{"hour": h, "count": c} for h, c in sorted(by_hour.items())],
             "codes_by_day": [{"day": d, "count": c} for d, c in sorted(made_by_day.items())],
-            "top_codes": per_code[:10],
+            # Enough for the page to paginate without a second round trip.
+            "top_codes": per_code[:200],
         }
 
     @app.get("/v1/codes")

@@ -891,7 +891,7 @@ private fun NewCodeScreen(api: Api, picker: PhotoPicker, guest: Boolean = false,
             }
         }
 
-        Field("What a scan opens", payload, { payload = it },
+        Field("What a scan opens *", payload, { payload = it },
             placeholder = "https://your-link.example")
         // Nothing to paste? Point it at your own card page. One tap, and it is
         // still an ordinary editable link afterwards.
@@ -944,7 +944,11 @@ private fun NewCodeScreen(api: Api, picker: PhotoPicker, guest: Boolean = false,
 
         PrimaryButton("Generate", Modifier.fillMaxWidth(), loading = busy) {
             val bytes = picker.bytes
-            if (bytes == null) error = "Choose a photo first."
+            if (payload.isBlank()) {
+                // Encrypting an empty string yields a code that resolves to
+                // nothing — refusing here is better than finding out at a scan.
+                error = "Type what a scan should open, or use your card link."
+            } else if (bytes == null) error = "Choose a photo first."
             else {
                 error = ""; busy = true
                 scope.launch {

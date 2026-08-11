@@ -38,8 +38,8 @@
   <div>
     <h3 style="margin-bottom:24px">New code</h3>
     <div class="field" style="margin-bottom:24px">
-      <label for="payload">Payload — what a scan opens</label>
-      <input id="payload" class="input mono" style="font-size:12px" placeholder="https://your-link.example">
+      <label for="payload">Payload — what a scan opens <span aria-hidden="true">*</span></label>
+      <input id="payload" class="input mono" required aria-required="true" style="font-size:12px" placeholder="https://your-link.example">
       <button class="btn btn-ghost" type="button" id="use-card" style="margin-top:8px">Use my card link</button>
     </div>
     <div class="field" style="margin-bottom:24px" data-account-only>
@@ -135,6 +135,15 @@ function stage(name) {
 $("generate").addEventListener("click", async () => {
   $("err").hidden = true;
   if (!photoFile) { $("err").textContent = "Upload a photo first — the code needs a face to protect."; $("err").hidden = false; return; }
+  // A code has to open something. Encrypting an empty string produces a valid
+  // code that resolves to nothing, which is worse than refusing: the person only
+  // finds out when someone scans it.
+  if (!$("payload").value.trim()) {
+    $("err").textContent = "Type what a scan should open, or use your card link.";
+    $("err").hidden = false;
+    $("payload").focus();
+    return;
+  }
   stage("busy");
   const genDone = withSpinner($("generate"), "Encoding");
   // Real progress is server-side; the Resolve runs as honest indeterminate
