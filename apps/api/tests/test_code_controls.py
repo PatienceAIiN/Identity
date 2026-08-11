@@ -136,3 +136,25 @@ def test_controls_are_scoped_to_the_owner(server):
     assert other.request("DELETE", f"/v1/codes/{code['credential_id']}").status_code == 404
     # Untouched, and still the owner's.
     assert owner.get("/v1/codes").json()["count"] == 1
+
+
+def test_monthly_code_limit_is_a_counter_not_a_row_count(server, monkeypatch):
+    """Deleting a code must not hand back allowance — otherwise the limit only
+    binds people who keep their codes."""
+    import main
+    monkeypatch.setattr(main, "USER_MONTHLY_CODES", 2, raising=False)
+    base, outbox = server
+    c = register(base, "quota@example.org", outbox, "Quota")
+
+    q = c.get("/v1/me/quota").json()
+    assert q["limit"] == 1000 or q["limit"] == 2      # module constant vs patched
+    assert q["used"] == 0 and q["resets_at"].endswith("+05:30")
+    assert q["resets_at"][8:10] == "01"               # the 1st, IST
+
+    first = make_code(c, "one")
+    make_code(c, "two")
+    assert c.get("/v1/me/quota").json()["used"] == 2
+
+    # Deleting one does not free a slot.
+    assert c.request("DELETE", f"/v1/codes/{first['credential_id']}").status_code == 200
+    assert c.get("/v1/me/quota").json()["used"] == 2, "deleting a code reset the quota"

@@ -138,6 +138,20 @@ class Card(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class CodeQuota(Base):
+    """Codes created per account per month.
+
+    A counter rather than a count of rows: if the budget were derived from how
+    many codes currently exist, deleting one would hand back allowance, and the
+    limit would only bind people who keep their codes.
+    """
+    __tablename__ = "code_quotas"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(String, index=True)
+    month: Mapped[str] = mapped_column(String, index=True)     # YYYY-MM, IST
+    count: Mapped[int] = mapped_column(Integer, default=0)
+
+
 class RevokedShare(Base):
     """A share whose account was deleted.
 

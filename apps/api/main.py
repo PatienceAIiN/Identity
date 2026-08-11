@@ -42,7 +42,8 @@ from auth import (COOKIE_NAME, OTP_MAX_ATTEMPTS, OTP_MAX_SENDS, OTP_TTL,
                   otp_matches, resolve_session, revoke_session)
 from sqlalchemy.orm import sessionmaker
 
-from db import (Base, Card, Credential, PendingSignup, Photo, Report, RevokedShare,
+from db import (Base, Card, CodeQuota, Credential, PendingSignup, Photo, Report,
+                RevokedShare,
                 ScanEvent, SessionToken, Share, TrialUsage, User,
                 make_engine, make_session_factory, utcnow)
 
@@ -139,6 +140,12 @@ def consent_headers(request: Request) -> dict:
     if request.cookies.get(CONSENT_COOKIE) == "all":
         return {}          # measurement allowed; nothing to restrict
     return {"Content-Security-Policy": NO_ANALYTICS_CSP}
+
+
+# Codes an account may create per calendar month, resetting at 00:00 IST on the
+# 1st — the same clock the API budget uses, so a person with both does not have
+# to hold two different month boundaries in their head.
+USER_MONTHLY_CODES = 1000
 
 
 def scrub_fragment(target: str) -> str:
@@ -787,6 +794,25 @@ def create_app(keys_dir: str | Path = "dev-keys", db_url: str | None = None,
                                      f"plaintext payloads")
         _valid_b64(ciphertext_b64, "ciphertext_b64")
         _valid_b64(nonce_b64, "nonce_b64")
+
+        # Checked before the photo is read and long before it is encoded: fusion
+        # is the expensive part, and someone over their limit should be told so
+        # immediately rather than after a wait.
+        from platformapi import billing_month, next_reset_iso
+        month = billing_month()
+        quota = (db.query(CodeQuota).filter_by(user_id=u.user_id, month=month)
+                 .first())
+        if quota is None:
+            quota = CodeQuota(user_id=u.user_id, month=month, count=0)
+            db.add(quota)
+            db.flush()
+        if quota.count >= USER_MONTHLY_CODES:
+            raise HTTPException(429, f"You've made {USER_MONTHLY_CODES} codes "
+                                     f"this month, which is the limit. It resets "
+                                     f"on the 1st. Your existing codes keep "
+                                     f"working.",
+                                headers={"X-Quota-Resets": next_reset_iso()})
+
         data = await photo.read()
 
         photo_id = new_photo_id()
@@ -841,6 +867,7 @@ def create_app(keys_dir: str | Path = "dev-keys", db_url: str | None = None,
                           decode_rate=decode_rate))
         db.add(Share(share_id=new_share_id(), credential_id=credential_id,
                      opaque_resolution_id=opaque, label=label))
+        quota.count += 1
         db.commit()
         notify(u.user_id, "codes.changed", {"reason": "created",
                                             "credential_id": credential_id})
@@ -850,6 +877,18 @@ def create_app(keys_dir: str | Path = "dev-keys", db_url: str | None = None,
                 "decode_rate": decode_rate, "decode_confidence": confidence,
                 "has_face": has_face, "image_ssim": image_ssim,
                 "image_png_b64": base64.b64encode(data).decode()}
+
+    @app.get("/v1/me/quota")
+    def my_quota(request: Request, db=Depends(get_db)):
+        u = current_user(request, db)
+        from platformapi import billing_month, next_reset_iso
+        month = billing_month()
+        row = (db.query(CodeQuota).filter_by(user_id=u.user_id, month=month)
+               .first())
+        used = row.count if row else 0
+        return {"month": month, "limit": USER_MONTHLY_CODES, "used": used,
+                "remaining": max(0, USER_MONTHLY_CODES - used),
+                "resets_at": next_reset_iso()}
 
     @app.get("/v1/codes")
     def list_codes(request: Request, db=Depends(get_db)):
