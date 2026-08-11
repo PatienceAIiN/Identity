@@ -31,6 +31,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddAPhoto
+import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Home
@@ -136,11 +137,13 @@ private enum class Screen(val label: String, val icon: ImageVector) {
     Home("Home", Icons.Filled.Home),
     New("New code", Icons.Filled.AddAPhoto),
     Codes("Codes", Icons.Filled.QrCode2),
+    Usage("Usage", Icons.Filled.BarChart),
     Scan("Scan", Icons.Filled.QrCodeScanner),
     Profile("Profile", Icons.Filled.Person),
 }
 
-private val TABS = listOf(Screen.Home, Screen.New, Screen.Scan, Screen.Codes, Screen.Profile)
+private val TABS = listOf(Screen.Home, Screen.New, Screen.Scan, Screen.Codes,
+                          Screen.Usage, Screen.Profile)
 
 @Composable
 private fun AppRoot(api: Api, picker: PhotoPicker, onReady: () -> Unit) {
@@ -287,6 +290,7 @@ private fun AppRoot(api: Api, picker: PhotoPicker, onReady: () -> Unit) {
                     onWantAccount = { guest = false; history.clear(); screen = Screen.Auth })
                 Screen.Scan -> ScanScreen(api)
                 Screen.Codes -> CodesScreen(api, codesVersion)
+                Screen.Usage -> UsageScreen(api, codesVersion)
                 Screen.Profile -> ProfileScreen(api, me) {
                     me = null; history.clear(); screen = Screen.Auth
                 }
@@ -1027,6 +1031,151 @@ private fun NewCodeScreen(api: Api, picker: PhotoPicker, guest: Boolean = false,
             confirmLabel = "Create an account", cancelLabel = "Not now",
             onConfirm = { quotaSpent = false; onWantAccount() },
             onDismiss = { quotaSpent = false })
+    }
+}
+
+/** Your own codes and scans — the same figures as the website's Usage page, and
+ *  deliberately not the developer console's, which is about API keys. */
+@Composable
+private fun UsageScreen(api: Api, liveVersion: Int = 0) {
+    var u by remember { mutableStateOf<JSONObject?>(null) }
+    var error by remember { mutableStateOf("") }
+    var page by remember { mutableStateOf(0) }
+    LaunchedEffect(liveVersion) {
+        runCatching { withContext(Dispatchers.IO) { api.get("/v1/me/usage") } }
+            .onSuccess { u = it }
+            .onFailure { error = it.message ?: "Couldn't load your usage." }
+    }
+
+    Column(Modifier.fillMaxSize().padding(horizontal = MD)) {
+        Spacer(Modifier.height(SM))
+        Text("Usage", style = MaterialTheme.typography.headlineMedium,
+            color = AppColors.ink)
+        if (error.isNotEmpty()) ErrorNote(error)
+        val d = u
+        if (d == null) {
+            Row(Modifier.fillMaxWidth().padding(MD),
+                horizontalArrangement = Arrangement.Center) {
+                CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp,
+                    color = Accent)
+            }
+            return@Column
+        }
+
+        val limit = d.optInt("codes_limit", 1000)
+        val used = d.optInt("codes_used_this_month")
+        val codes = d.optJSONArray("top_codes")
+        val total = codes?.length() ?: 0
+        val perPage = 6
+        val pages = maxOf(1, (total + perPage - 1) / perPage)
+        if (page >= pages) page = pages - 1
+
+        LazyColumn(Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(SM)) {
+            item {
+                SectionTitle("codes this month · ${d.optString("month")}")
+                Column(Modifier.fillMaxWidth().background(AppColors.surface).padding(MD),
+                    verticalArrangement = Arrangement.spacedBy(XS)) {
+                    Text("$used / $limit", fontFamily = Mono,
+                        fontWeight = FontWeight.Bold, fontSize = 26.sp,
+                        color = AppColors.ink)
+                    Text("${d.optInt("codes_remaining_this_month")} left · resets on the 1st",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = AppColors.muted)
+                    // A meter, not a number to interpret.
+                    Box(Modifier.fillMaxWidth().height(6.dp)
+                        .background(AppColors.line)) {
+                        Box(Modifier.fillMaxWidth(
+                                (used.toFloat() / limit).coerceIn(0f, 1f))
+                            .height(6.dp).background(Accent))
+                    }
+                    Text("deleting a code does not give the slot back",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = AppColors.muted)
+                }
+            }
+            item {
+                Row(horizontalArrangement = Arrangement.spacedBy(SM)) {
+                    StatTile("${d.optInt("codes_live")}", "live", Live, Modifier.weight(1f))
+                    StatTile("${d.optInt("codes_off")}", "switched off", Revoked,
+                        Modifier.weight(1f))
+                }
+            }
+            item {
+                Row(horizontalArrangement = Arrangement.spacedBy(SM)) {
+                    StatTile("${d.optInt("scans_total")}", "scans", Blue, Modifier.weight(1f))
+                    StatTile("${d.optInt("peak_hour_scans")}", "busiest hour", Accent,
+                        Modifier.weight(1f))
+                }
+            }
+            item { UsageBars("scans per day · last 14", d.optJSONArray("scans_by_day"), Accent) }
+            item { UsageBars("codes made per day · last 14", d.optJSONArray("codes_by_day"), Live) }
+            item { Rule(); SectionTitle("most scanned") }
+            items((0 until minOf(perPage, maxOf(0, total - page * perPage))).toList()) { i ->
+                val c = codes!!.getJSONObject(page * perPage + i)
+                Row(Modifier.fillMaxWidth().padding(vertical = XS),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(c.optString("opaque_resolution_id"), fontFamily = Mono,
+                            fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                            color = AppColors.ink)
+                        Text("${c.optString("label").ifBlank { "unlabelled" }} · " +
+                             c.optString("state"),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = AppColors.muted)
+                    }
+                    Text("${c.optInt("scans")}", fontFamily = Mono, fontSize = 13.sp,
+                        color = AppColors.ink)
+                }
+            }
+            item { Spacer(Modifier.height(SM)) }
+        }
+        if (pages > 1) {
+            Row(Modifier.fillMaxWidth().padding(vertical = SM),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(SM)) {
+                SecondaryButton("Previous", Modifier.weight(1f),
+                    enabled = page > 0) { page-- }
+                Text("${page + 1} of $pages", fontFamily = Mono, fontSize = 11.sp,
+                    color = AppColors.muted)
+                SecondaryButton("Next", Modifier.weight(1f),
+                    enabled = page < pages - 1) { page++ }
+            }
+        }
+    }
+}
+
+/** Bars, not a line: these are counts per day, and a line between two days
+ *  implies values in between that never existed. */
+@Composable
+private fun UsageBars(title: String, series: org.json.JSONArray?, colour: Color) {
+    val points = buildList {
+        val n = series?.length() ?: 0
+        for (i in maxOf(0, n - 14) until n) {
+            val o = series!!.getJSONObject(i)
+            add(o.optString("day").takeLast(2) to o.optInt("count"))
+        }
+    }
+    SectionTitle(title)
+    if (points.isEmpty() || points.all { it.second == 0 }) {
+        Text("nothing yet", style = MaterialTheme.typography.labelSmall,
+            color = AppColors.muted)
+        return
+    }
+    val max = points.maxOf { it.second }.coerceAtLeast(1)
+    Row(Modifier.fillMaxWidth().height(96.dp),
+        verticalAlignment = Alignment.Bottom,
+        horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        points.forEach { (label, value) ->
+            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Bottom) {
+                Box(Modifier.fillMaxWidth()
+                    .height((value.toFloat() / max * 66f).dp.coerceAtLeast(2.dp))
+                    .background(if (value > 0) colour else AppColors.line))
+                Spacer(Modifier.height(3.dp))
+                Text(label, fontFamily = Mono, fontSize = 8.sp, color = AppColors.muted)
+            }
+        }
     }
 }
 

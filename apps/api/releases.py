@@ -191,6 +191,39 @@ def make_router(SessionLocal, public_host: str, notify=None) -> APIRouter:
             db.commit()
         return removed
 
+    @router.post("/v1/app/prune")
+    def prune_now(request: Request, keep: int = 1):
+        """Delete superseded APKs now, rather than waiting for install reports.
+
+        The automatic prune holds a release back until a newer one has confirmed
+        installs, which is the right default — it keeps a rollback target while
+        an update is still rolling out. This is the deliberate override for when
+        the operator knows the old builds are finished with.
+        """
+        require_admin(request)
+        db = db_session()
+        try:
+            return _prune_to(db, keep)
+        finally:
+            db.close()
+
+    def _prune_to(db, keep: int) -> dict:
+        live = (db.query(AppRelease).filter_by(pruned=False)
+                .order_by(AppRelease.version_code.desc()).all())
+        keep = max(1, keep)
+        removed = []
+        for old in live[keep:]:
+            try:
+                store().delete(old.object_key)
+            except Exception:
+                pass          # already gone from storage; still mark it pruned
+            old.pruned = True
+            removed.append(old.version_code)
+        if removed:
+            db.commit()
+        return {"kept": [r.version_code for r in live[:keep]],
+                "deleted": removed, "count": len(removed)}
+
     @router.get("/v1/app/latest")
     def app_latest():
         """Manifest the Android app polls. Also feeds the website CTA."""
