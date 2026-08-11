@@ -1,10 +1,7 @@
 package `in`.photobind.app.ota
 
 import android.content.Context
-import android.app.PendingIntent
 import android.content.Intent
-import android.content.pm.PackageInstaller
-import `in`.photobind.app.MainActivity
 import android.os.Build
 import androidx.core.content.FileProvider
 import `in`.photobind.app.BuildConfig
@@ -123,48 +120,27 @@ class UpdateManager(private val context: Context) {
     val canInstallInApp: Boolean get() = BuildConfig.OTA_IN_APP
 
     /**
-     * Install through PackageInstaller sessions rather than by handing a
-     * downloaded file to the generic installer with ACTION_VIEW.
+     * Hand the downloaded APK to the system installer.
      *
-     * This is the sanctioned path for an app that updates itself, and it is a
-     * narrower one: the bytes are streamed into a session owned by this app for
-     * this package, instead of a world-readable content URI pointed at whatever
-     * will accept an APK mime type. It does not remove Play Protect's warning on
-     * its own — an app that downloads and installs an APK is the shape of thing
-     * that warning exists for — but it is the correct API, and the file never
-     * becomes reachable by another app.
+     * This used PackageInstaller sessions for a while, because it is the more
+     * modern API. It broke updating: committing a session does not show the
+     * installer — the system replies with STATUS_PENDING_USER_ACTION and an
+     * intent the app is expected to launch, and without that step the commit
+     * succeeds silently and nothing ever appears on screen. Tapping Update did
+     * nothing at all.
      *
-     * Falls back to the old intent if a session cannot be opened, so a failure
-     * here still leaves a way to update.
+     * ACTION_VIEW asks the system to open the package, which is exactly what
+     * should happen, in one step that cannot half-work. The APK's checksum is
+     * already verified against the signed manifest before we get here.
      */
     fun install(apk: File) {
-        runCatching {
-            val installer = context.packageManager.packageInstaller
-            val params = PackageInstaller.SessionParams(
-                PackageInstaller.SessionParams.MODE_FULL_INSTALL)
-            params.setAppPackageName(context.packageName)
-            val sessionId = installer.createSession(params)
-            installer.openSession(sessionId).use { session ->
-                session.openWrite("identity", 0, apk.length()).use { out ->
-                    apk.inputStream().use { it.copyTo(out) }
-                    session.fsync(out)
-                }
-                val intent = Intent(context, MainActivity::class.java)
-                    .setAction("in.photobind.app.INSTALL_RESULT")
-                val flags = PendingIntent.FLAG_UPDATE_CURRENT or
-                    PendingIntent.FLAG_MUTABLE
-                val pending = PendingIntent.getActivity(context, sessionId, intent, flags)
-                session.commit(pending.intentSender)
-            }
-        }.onFailure {
-            val uri = FileProvider.getUriForFile(
-                context, "${context.packageName}.updates", apk)
-            context.startActivity(Intent(Intent.ACTION_VIEW).apply {
-                setDataAndType(uri, "application/vnd.android.package-archive")
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or
-                         Intent.FLAG_ACTIVITY_NEW_TASK)
-            })
-        }
+        val uri = FileProvider.getUriForFile(
+            context, "${context.packageName}.updates", apk)
+        context.startActivity(Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, "application/vnd.android.package-archive")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                     Intent.FLAG_ACTIVITY_NEW_TASK)
+        })
     }
 
     /**
