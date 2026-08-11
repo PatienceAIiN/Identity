@@ -1149,12 +1149,20 @@ private fun UsageScreen(api: Api, liveVersion: Int = 0) {
  *  implies values in between that never existed. */
 @Composable
 private fun UsageBars(title: String, series: org.json.JSONArray?, colour: Color) {
-    val points = buildList {
-        val n = series?.length() ?: 0
-        for (i in maxOf(0, n - 14) until n) {
+    // Zero-filled across a fixed 14-day window, not just the days that have
+    // data. Plotting only the populated days made a single day of activity render
+    // as one bar spanning the whole width — every bar takes an equal share, so
+    // "one bar" and "one day" looked identical. A gap has to read as a gap.
+    val counts = buildMap {
+        for (i in 0 until (series?.length() ?: 0)) {
             val o = series!!.getJSONObject(i)
-            add(o.optString("day").takeLast(2) to o.optInt("count"))
+            put(o.optString("day"), o.optInt("count"))
         }
+    }
+    val today = java.time.LocalDate.now()
+    val points = (13 downTo 0).map { back ->
+        val day = today.minusDays(back.toLong()).toString()
+        day.takeLast(2) to (counts[day] ?: 0)
     }
     SectionTitle(title)
     if (points.isEmpty() || points.all { it.second == 0 }) {
