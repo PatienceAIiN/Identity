@@ -1,0 +1,97 @@
+# Deploy Identity to Cloud Run on every push to main.
+#
+# Authenticates with Workload Identity Federation rather than a downloaded
+# service-account key: a JSON key in a repository secret is a long-lived
+# credential that leaks with the secret, whereas federation mints a short-lived
+# token for this repository only.
+#
+# One-time setup on your side (see docs/deploy.md):
+#   GCP_PROJECT_ID          gen-lang-client-0839484503
+#   GCP_WIF_PROVIDER        projects/<num>/locations/global/workloadIdentityPools/<pool>/providers/<provider>
+#   GCP_DEPLOY_SA           deployer@<project>.iam.gserviceaccount.com
+# Set them as repository secrets. Until they exist this workflow is skipped
+# rather than failing every push.
+name: deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  # A newer push supersedes an in-flight deploy; two revisions racing to serve
+  # 100% of traffic is worse than waiting.
+  group: deploy-main
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e packages/encoder -e packages/binding 2>/dev/null || true
+          pip install fastapi uvicorn httpx pytest sqlalchemy pydantic \
+            argon2-cffi cryptography segno opencv-python-headless numpy \
+            scikit-image zxing-cpp pyzbar boto3 python-multipart
+      - name: Tests
+        # The suite is the gate. A deploy that skips it is a deploy that ships
+        # the foreign-key ordering bug again.
+        run: python -m pytest apps/api/tests -q
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write          # required to mint the federated token
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check deploy credentials
+        id: creds
+        run: |
+          if [ -n "${{ secrets.GCP_WIF_PROVIDER }}" ] && [ -n "${{ secrets.GCP_DEPLOY_SA }}" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Deploy secrets are not set, so this push was tested but not deployed."
+          fi
+
+      - uses: google-github-actions/auth@v2
+        if: steps.creds.outputs.ready == 'true'
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOY_SA }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+        if: steps.creds.outputs.ready == 'true'
+
+      - name: Deploy to Cloud Run
+        if: steps.creds.outputs.ready == 'true'
+        run: |
+          gcloud run deploy identity \
+            --project "${{ secrets.GCP_PROJECT_ID }}" \
+            --region us-central1 \
+            --source . \
+            --quiet
+        # Environment variables and secrets already set on the service are
+        # preserved: --source does not clear them, and this workflow deliberately
+        # never passes --set-env-vars, which would replace the whole set and drop
+        # the database password, the admin hash and the API signing key.
+
+      - name: Verify the revision actually serves
+        if: steps.creds.outputs.ready == 'true'
+        run: |
+          for i in $(seq 1 10); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' https://identity.patienceai.in/v1/health || true)
+            if [ "$code" = "200" ]; then echo "healthy"; exit 0; fi
+            sleep 6
+          done
+          echo "::error::The new revision did not answer /v1/health with 200."
+          exit 1
