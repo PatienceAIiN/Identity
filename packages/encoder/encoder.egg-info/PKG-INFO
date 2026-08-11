@@ -1,0 +1,11 @@
+Metadata-Version: 2.4
+Name: encoder
+Version: 0.1.0
+Summary: QR/photo fusion engine: scannable photos with validated decode confidence
+Requires-Python: >=3.12
+Requires-Dist: numpy
+Requires-Dist: opencv-python-headless
+Requires-Dist: segno
+Requires-Dist: zxing-cpp
+Provides-Extra: zbar
+Requires-Dist: pyzbar; extra == "zbar"

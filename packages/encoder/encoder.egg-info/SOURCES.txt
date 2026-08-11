@@ -1,0 +1,15 @@
+pyproject.toml
+encoder/__init__.py
+encoder/api.py
+encoder/decoders.py
+encoder/degrade.py
+encoder/faces.py
+encoder/fusion.py
+encoder/metrics.py
+encoder/qrspec.py
+encoder.egg-info/PKG-INFO
+encoder.egg-info/SOURCES.txt
+encoder.egg-info/dependency_links.txt
+encoder.egg-info/requires.txt
+encoder.egg-info/top_level.txt
+encoder/models/face_detection_yunet_2023mar.onnx

@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Create a code — Identity by Patience AI</title>
+<meta name="description" content="Upload a photo and get back a scannable, revocable identity code with measured decode confidence.">
+<link rel="canonical" href="https://identity.patienceai.in/app/new.html">
+<meta name="robots" content="noindex,follow">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Identity by Patience AI">
+<meta property="og:title" content="Create a code — Identity by Patience AI">
+<meta property="og:description" content="Upload a photo and get back a scannable, revocable identity code with measured decode confidence.">
+<meta property="og:url" content="https://identity.patienceai.in/app/new.html">
+<meta property="og:image" content="https://identity.patienceai.in/static/icon-512.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Create a code — Identity by Patience AI">
+<meta name="twitter:description" content="Upload a photo and get back a scannable, revocable identity code with measured decode confidence.">
+<meta name="twitter:image" content="https://identity.patienceai.in/static/icon-512.png">
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/static/icon-32.png" sizes="32x32" type="image/png">
+<link rel="icon" href="/static/icon-16.png" sizes="16x16" type="image/png">
+<link rel="apple-touch-icon" href="/static/icon-180.png">
+<link rel="manifest" href="/static/site.webmanifest">
+<meta name="theme-color" content="#201e1d">
+<link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+<nav class="nav">
+  <a class="nav-brand" href="/">Identity</a>
+  <a href="/app/codes.html">Codes</a>
+  <a href="/app/new.html" aria-current="page">New code</a>
+  <a href="/app/scan.html">Scan</a>
+  <a href="/app/profile.html">Profile</a>
+</nav>
+<div class="wrap cols" style="display:grid;grid-template-columns:minmax(280px,380px) minmax(300px,1fr);gap:42px;align-items:start">
+  <div>
+    <h3 style="margin-bottom:24px">New code</h3>
+    <div class="field" style="margin-bottom:24px">
+      <label for="payload">Payload — what a scan opens</label>
+      <input id="payload" class="input mono" style="font-size:12px" placeholder="https://your-link.example">
+      <button class="btn btn-ghost" type="button" id="use-card" style="margin-top:8px">Use my card link</button>
+    </div>
+    <div class="field" style="margin-bottom:24px" data-account-only>
+      <label for="label">Share label — where this copy goes</label>
+      <input id="label" class="input" value="LinkedIn">
+    </div>
+    <div class="field" style="margin-bottom:24px">
+      <label>Coverage</label>
+      <div style="display:inline-flex;border:1px solid rgba(32,30,29,.4)">
+        <label style="display:inline-flex;align-items:center;gap:6px;padding:9px 12px;font-size:13px;cursor:pointer">
+          <input type="radio" name="coverage" value="full" checked>Full image</label>
+        <label style="display:inline-flex;align-items:center;gap:6px;padding:9px 12px;font-size:13px;cursor:pointer;border-left:1px solid rgba(32,30,29,.4)">
+          <input type="radio" name="coverage" value="auto">Keep the face clear</label>
+      </div>
+      <p class="mono muted" style="font-size:10.5px;margin:6px 0 0">full image = the code spans the whole photo · keep the face clear = smaller code placed off the face</p>
+    </div>
+    <div class="field">
+      <label>Photo — any image works; a face gets extra protection</label>
+      <div style="border:2px solid rgba(32,30,29,.4);padding:24px;display:flex;flex-direction:column;gap:12px;align-items:flex-start">
+        <button class="btn btn-secondary" id="upload">Upload photo</button>
+        <span class="mono muted" id="fname" style="font-size:11px">no photo selected</span>
+        <input type="file" id="file" accept="image/*" style="display:none">
+      </div>
+    </div>
+    <button class="btn btn-primary btn-block" id="generate" style="margin-top:24px">Generate</button>
+    <p class="mono muted" style="font-size:11px;margin-top:24px">encrypt in browser → embed → verify decode</p>
+  </div>
+  <div>
+    <div id="stage-idle">
+      <div class="panel"><div id="preview" class="mono muted" style="min-height:280px;display:grid;place-items:center;font-size:11px">upload a photo to begin</div></div>
+      <p class="mono muted" style="font-size:11px;margin-top:12px">ready — the code will live in this photo's halftone</p>
+    </div>
+    <div id="stage-busy" hidden>
+      <div class="panel"><canvas id="resolve-gen" width="760" height="760" style="width:100%;max-width:520px;height:auto;display:block" aria-label="Encoding progress"></canvas></div>
+      <div style="display:flex;gap:24px;align-items:baseline;margin-top:12px">
+        <span class="mono" id="pct" style="font-size:24px;font-weight:700">0%</span>
+        <div class="mono muted" id="log" style="font-size:11px;line-height:1.7"></div>
+      </div>
+    </div>
+    <div id="stage-done" hidden>
+      <div class="cols" style="display:grid;grid-template-columns:minmax(200px,280px) 1fr;gap:24px;align-items:start">
+        <div style="border:2px solid rgba(32,30,29,.4);padding:12px;background:#fff"><img id="art" alt="Your photo-bound code" style="width:100%;display:block"></div>
+        <div>
+          <p class="kicker" style="margin-bottom:6px">decode confidence</p>
+          <p class="mono" id="conf" style="font-size:42px;font-weight:700;line-height:1;margin-bottom:6px">–</p>
+          <p style="font-size:14px;max-width:36ch">Verified with a standard scanner before we showed it to you. Below 90% we'd say so and offer a retry.</p>
+          <p class="mono muted" id="qual" style="font-size:10.5px;margin:0 0 4px"></p>
+          <p class="mono muted" id="saved-state" style="font-size:10.5px;margin:0 0 12px"></p>
+          <div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:24px">
+            <button class="btn btn-primary" id="copy">Copy link</button>
+            <button class="btn btn-secondary" id="download">Download PNG</button>
+            <a class="btn btn-ghost" href="/app/codes.html" data-account-only>Your codes</a>
+          </div>
+          <p class="err" id="generr" hidden style="margin-top:12px"></p>
+        </div>
+      </div>
+    </div>
+    <p class="err" id="err" hidden style="margin-top:12px"></p>
+  </div>
+</div>
+<script src="/static/app.js"></script>
+<script src="/static/consent.js"></script>
+<script src="/static/chrome.js"></script>
+<script src="/static/download.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+let photoFile = null, resolver = null, link = "";
+
+/* Account-only controls are hidden during a trial rather than shown broken. */
+document.addEventListener("DOMContentLoaded", () => {
+  const hide = () => document.querySelectorAll("[data-account-only]")
+    .forEach((el) => { el.hidden = TRIAL.active; });
+  setTimeout(hide, 350);
+  document.addEventListener("pb:session", () => setTimeout(hide, 50));
+});
+
+$("upload").addEventListener("click", () => $("file").click());
+$("file").addEventListener("change", e => {
+  photoFile = e.target.files[0];
+  if (!photoFile) return;
+  $("fname").textContent = photoFile.name;
+  const url = URL.createObjectURL(photoFile);
+  $("preview").innerHTML = `<img src="${url}" alt="" style="max-width:100%;filter:grayscale(1) contrast(1.08)">`;
+  const img = new Image();
+  img.onload = () => { resolver = new Resolve($("resolve-gen"), url); };
+  img.src = url;
+});
+
+function stage(name) {
+  for (const s of ["idle", "busy", "done"]) $("stage-" + s).hidden = s !== name;
+}
+
+$("generate").addEventListener("click", async () => {
+  $("err").hidden = true;
+  if (!photoFile) { $("err").textContent = "Upload a photo first — the code needs a face to protect."; $("err").hidden = false; return; }
+  stage("busy");
+  const genDone = withSpinner($("generate"), "Encoding");
+  // Real progress is server-side; the Resolve runs as honest indeterminate
+  // progress and snaps to done when the encoder returns.
+  /* Nothing to paste? Point the code at your own card page. Signed-out visitors
+     are on the free trial and have no card, so the button says so rather than
+     failing. */
+  $("use-card")?.addEventListener("click", async () => {
+    const b = $("use-card");
+    const done = withSpinner(b, "Building");
+    try {
+      const card = await api("/v1/me/card");
+      $("payload").value = card.url;
+      toast("Using your card link");
+    } catch (_) {
+      toast("Sign in to use your card link");
+    } finally { done(); }
+  });
+
+  const LINES = ["encrypt payload · aes-256-gcm", "place finder patterns · 3 of 3",
+                 "error correction · level H (30%)", "fuse modules · texture-aware",
+                 "verify decode · scanning…"];
+  let p = 0, done = false;
+  const tick = () => {
+    if (done) return;
+    p = Math.min(0.92, p + 0.008);
+    resolver && resolver.draw(p);
+    $("pct").textContent = Math.round(p * 100) + "%";
+    $("log").innerHTML = LINES.slice(0, Math.min(5, Math.floor(p * 6))).map(l => `<div>${l}</div>`).join("");
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+  const coverage = document.querySelector('input[name="coverage"]:checked').value;
+  try {
+    let r;
+    if (TRIAL.active) {
+      // Trial: nothing is stored, so the code carries the link itself and there
+      // is no key for us to be kept away from.
+      r = await generateTrial({ photoFile, payload: $("payload").value, coverage });
+      link = $("payload").value;
+    } else {
+      const enc = await encryptPayload($("payload").value);
+      const fd = new FormData();
+      fd.append("photo", photoFile);
+      fd.append("ciphertext_b64", enc.ciphertext_b64);
+      fd.append("nonce_b64", enc.nonce_b64);
+      fd.append("label", $("label").value || "Share 1");
+      fd.append("encode_qr", "1");
+      fd.append("fragment_key", enc.fragment_key);
+      fd.append("coverage", coverage);
+      r = await api("/v1/codes", { method: "POST", body: fd });
+      link = r.resolution_url + "#" + enc.fragment_key;
+    }
+    done = true;
+    resolver && resolver.draw(1);
+    $("art").src = "data:image/png;base64," + r.image_png_b64;
+    $("conf").textContent = r.decode_rate + "%";
+    $("saved-state").textContent = r.saved === false
+      ? "not saved — trial code"
+      : "saved to your codes";
+    stage("done");
+    genDone();
+    if (r.decode_rate < 90) {
+      $("generr").textContent = "Decode confidence is below 90%. Try a photo with more background texture, or re-run.";
+      $("generr").hidden = false;
+    }
+  } catch (e) {
+    done = true;
+    genDone();
+    stage("idle");
+    if (!e.handled) {
+      $("err").textContent = "Couldn't make a code: " + e.message;
+      $("err").hidden = false;
+    }
+  }
+});
+
+$("copy").addEventListener("click", async () => {
+  await navigator.clipboard.writeText(link);
+  toast("Link copied");
+});
+$("download").addEventListener("click", () => {
+  const a = document.createElement("a");
+  a.href = $("art").src; a.download = "photo-bound-code.png"; a.click();
+});
+</script>
+<script src="/static/legal.js"></script>
+<script src="/static/trial.js"></script>
+<script src="/static/feedback.js"></script>
+<script src="/static/sync.js"></script>
+</body>
+</html>

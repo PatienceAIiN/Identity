@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Identity — resolve</title>
+<!-- Highest-risk surface in the product (CLAUDE.md §5, §8.5). Served with a
+     strict CSP header by the API; no third-party scripts, no inline script,
+     no external styles. Everything it needs is self-hosted and minimal. -->
+<link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+<div style="min-height:100vh;background:#fbfafa;display:flex;flex-direction:column;align-items:center;padding:42px 24px">
+  <div style="width:min(420px,100%)">
+    <p class="mono muted" style="font-size:11px;margin-bottom:24px">identity<span style="color:var(--pb-blue)" id="path"></span></p>
+    <div id="out">
+      <div class="result" style="border-top-color:var(--pb-muted)">
+        <span class="tag" style="background:rgba(32,30,29,.08)">Checking</span>
+        <h4 style="margin:24px 0 12px">Resolving this code</h4>
+        <p style="font-size:14px" class="muted">Fetching the encrypted record. The key in your link stays in this browser.</p>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="/static/r.js"></script>
+</body>
+</html>

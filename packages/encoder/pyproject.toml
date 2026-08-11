@@ -1,0 +1,25 @@
+[project]
+name = "encoder"
+version = "0.1.0"
+description = "QR/photo fusion engine: scannable photos with validated decode confidence"
+requires-python = ">=3.12"
+dependencies = [
+    "numpy",
+    "opencv-python-headless",
+    "segno",
+    "zxing-cpp",
+]
+
+[project.optional-dependencies]
+# pyzbar needs a system libzbar; validation degrades gracefully without it.
+zbar = ["pyzbar"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["encoder*"]
+
+[tool.setuptools.package-data]
+encoder = ["models/*.onnx"]

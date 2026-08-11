@@ -1,0 +1,31 @@
+.venv/
+__pycache__/
+*.pyc
+packages/harness/results/*
+!packages/harness/results/REPORT.md
+!packages/harness/results/frontier.png
+packages/harness/photos/
+.pytest_cache/
+artifacts/validation/
+packages/binding/tests/__pycache__/
+run/
+dist/
+
+# Never publish signing material. The Android keystore signs the app: with it,
+# anyone can build an APK that a phone accepts as an update to Identity. The
+# Ed25519 keys sign photo-binding records, so leaking them lets someone forge
+# tamper evidence. Both were tracked before this line existed.
+*.jks
+*.keystore
+dev-keys/
+**/dev-keys/
+*.priv.pem
+api-signing.key
+*.db
+*.log
+run/
+
+# Build outputs — 1299 files of them were tracked, which is noise in every diff.
+apps/android/.gradle/
+apps/android/app/build/
+apps/android/build/

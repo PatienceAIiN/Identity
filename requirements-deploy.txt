@@ -1,0 +1,18 @@
+# Runtime deps for the deployed service. Pinned to what the local stack was
+# actually tested against, minus the research/plotting stack (matplotlib,
+# pandas, scikit-image) which only the harness needs.
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-multipart==0.0.20
+sqlalchemy==2.0.36
+psycopg[binary]==3.2.3
+argon2-cffi==23.1.0
+cryptography==44.0.0
+numpy==2.2.1
+opencv-python-headless==4.10.0.84
+segno==1.6.1
+zxing-cpp==2.3.0
+pyzbar==0.1.9
+google-auth==2.37.0
+requests==2.32.3
+boto3==1.35.92

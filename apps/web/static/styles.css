@@ -1,0 +1,267 @@
+/* photobind web — Modernist bones + riso ink, from the claude.design project.
+   tokens.css is generated from packages/tokens/tokens.json. */
+@import url('/static/tokens.css');
+
+/* Typography: Helvetica for statements, Courier New for everything the system
+   says about itself (ids, versions, metadata). Both are locally installed, so
+   there is no webfont request and no fallback flash. */
+:root {
+  --pb-display: Helvetica, "Helvetica Neue", Arial, sans-serif;
+  --pb-ui: "Courier New", Courier, monospace;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--pb-bg); color: var(--pb-ink);
+  font-family: var(--pb-ui); font-size: 15px; line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+h1,h2,h3,h4,h5 {
+  font-family: var(--pb-display);
+  font-weight: 700; line-height: 1.05; letter-spacing: -0.03em; margin: 0 0 8px;
+  text-wrap: balance;
+}
+h1 { font-size: 42px; } h2 { font-size: 32px; } h3 { font-size: 25px; } h4 { font-size: 20px; }
+p { margin: 0 0 12px; }
+a { color: #B00A6F; text-underline-offset: 3px; }
+a:hover { color: #4D0A33; }
+img { display: block; max-width: 100%; }
+.mono { font-family: var(--pb-ui); }
+.kicker { font-family: var(--pb-ui); font-size: 11px; color: var(--pb-blue); margin: 0 0 12px; }
+.muted { color: var(--pb-muted); }
+:focus { outline: none; }
+:focus-visible { outline: 2px solid var(--pb-accent); outline-offset: 2px; }
+::selection { background: rgba(255,72,176,.3); }
+
+.nav { display: flex; align-items: center; gap: 24px; padding: 16px 24px 14px; border-bottom: var(--pb-rule) solid rgba(32,30,29,.4); }
+/* Wordmark: set large and very tight, descriptor stacked small underneath
+   rather than competing on the same line. The square is the product's own
+   finder geometry, not decoration. */
+.nav .nav-brand, a.nav-brand {
+  font-family: var(--pb-display);
+  font-weight: 700; font-size: 38px; letter-spacing: -0.062em;
+  margin-right: auto; display: inline-flex; align-items: flex-end; gap: 8px;
+  color: var(--pb-ink); text-decoration: none; line-height: .9;
+}
+.nav .nav-brand::after, a.nav-brand::after {
+  content: ''; width: 8px; height: 8px; background: var(--pb-live);
+  margin-bottom: 6px; flex: none;
+}
+@media (max-width: 620px) { .nav .nav-brand, a.nav-brand { font-size: 30px; } }
+.nav a:not(.nav-brand) { color: inherit; text-decoration: none; font-size: 13px; }
+.nav a:not(.nav-brand):hover, .nav a[aria-current="page"] { color: var(--pb-accent); }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  cursor: pointer; text-decoration: none; font-family: var(--pb-ui);
+  font-weight: 700; font-size: 13px; letter-spacing: .02em; line-height: 1.2;
+  color: var(--pb-ink);
+  background: transparent; border: 1px solid transparent; padding: 8px 15px;
+  border-radius: 0; min-height: 44px;
+}
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn-primary { background: var(--pb-accent); }
+.btn-primary:hover { background: var(--pb-accentHover); }
+.btn-primary:active { background: var(--pb-accentActive); }
+.btn-secondary { border-color: rgba(32,30,29,.4); }
+.btn-secondary:hover { background: rgba(32,30,29,.07); }
+.btn-ghost { color: #B00A6F; padding-inline: 4px; }
+.btn-ghost:hover { background: rgba(255,72,176,.1); }
+.btn-block { width: 100%; }
+.btn-dark { background: var(--pb-ink); color: var(--pb-inkInverse); }
+
+.field > label { display: block; font-size: 12px; margin-bottom: 5px; color: rgba(32,30,29,.7); }
+.input {
+  width: 100%; min-height: 44px; padding: 6px 10px; font: inherit; font-size: 14px;
+  color: var(--pb-ink); caret-color: var(--pb-accent); background: var(--pb-surface);
+  border: 1px solid rgba(32,30,29,.4); border-radius: 0;
+}
+.input:hover { border-color: rgba(32,30,29,.45); }
+.input:focus-visible { border-color: var(--pb-accent); outline-offset: 0; }
+
+.tag { display: inline-flex; align-items: center; font-size: 11px; letter-spacing: .02em; padding: 3px 10px; }
+.tag-live { background: var(--pb-liveBg); color: var(--pb-liveInk); }
+.tag-revoked { background: var(--pb-revokedBg); color: var(--pb-revokedInk); }
+.tag-expiring { background: var(--pb-expiringBg); color: var(--pb-expiringInk); }
+
+.panel { border: var(--pb-rule) solid rgba(32,30,29,.4); padding: 24px; background: var(--pb-surface); }
+.result { border-top: 4px solid var(--pb-live); background: #fff; padding: 24px; }
+.result.revoked { border-top-color: var(--pb-revoked); }
+.result.expiring { border-top-color: var(--pb-expiring); }
+.codebox {
+  font-family: var(--pb-ui); font-size: 12px; line-height: 1.9;
+  border: 1px solid rgba(32,30,29,.4); padding: 12px; overflow-wrap: anywhere;
+}
+.err { font-size: 13px; color: var(--pb-revokedInk); border-left: 3px solid var(--pb-revoked); padding-left: 12px; }
+
+/* finder-corner cards: 3 corners, never 4 (design rule) */
+.code-card { position: relative; background: var(--pb-surface); padding: 24px; display: flex; flex-direction: column; gap: 12px; }
+.code-card .corner { position: absolute; width: 20px; height: 20px; border: 3px solid var(--corner, var(--pb-live)); pointer-events: none; }
+.code-card .corner::after { content: ''; position: absolute; inset: 4px; background: var(--corner, var(--pb-live)); }
+.code-card .corner.tl { top: -2px; left: -2px; } .code-card .corner.tr { top: -2px; right: -2px; } .code-card .corner.bl { bottom: -2px; left: -2px; }
+
+.toast {
+  position: fixed; left: 24px; bottom: 24px; background: var(--pb-ink); color: var(--pb-inkInverse);
+  font-family: var(--pb-ui); font-size: 12px; padding: 12px 24px; z-index: 50;
+  animation: toastIn 160ms ease-out;
+}
+@keyframes toastIn { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .toast { animation: none; } }
+
+.wrap { max-width: 1280px; margin: 0 auto; padding: 42px; }
+@media (max-width: 900px) { .cols { grid-template-columns: 1fr !important; gap: 24px !important; } .wrap { padding: 24px; } }
+
+/* — download CTA — the supported-version note is part of the control, not
+   a footnote: people decide with it, so it sits inside the button. */
+.dl {
+  display: inline-flex; flex-direction: column; gap: 6px; text-decoration: none;
+  background: var(--pb-ink); color: var(--pb-inkInverse);
+  padding: 12px 24px 10px; min-height: 44px; justify-content: center;
+  border: 2px solid var(--pb-ink);
+}
+a.dl:hover { background: var(--pb-accent); color: var(--pb-ink); border-color: var(--pb-accent); }
+a.dl:hover .dl-note, a.dl:hover .dl-ver { color: var(--pb-ink); opacity: .75; }
+.dl-main { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.dl-label { font-weight: 800; font-size: 15px; }
+.dl-ver { font-size: 11px; opacity: .7; }
+.dl-note { font-family: var(--pb-ui); font-size: 10.5px; opacity: .65; letter-spacing: .01em; }
+.dl-notes { font-size: 13px; color: var(--pb-muted); max-width: 44ch; margin-top: 12px; }
+
+/* — password field with reveal toggle — */
+.pw { position: relative; display: block; }
+.pw .input { padding-right: 44px; }
+.pw-eye {
+  position: absolute; right: 0; top: 0; height: 100%; width: 40px;
+  display: grid; place-items: center; background: none; border: 0;
+  color: var(--pb-muted); cursor: pointer;
+}
+.pw-eye:hover { color: var(--pb-ink); }
+.pw-eye:focus-visible { outline: 2px solid var(--pb-accent); outline-offset: -2px; }
+
+/* The `hidden` attribute loses to any inline `display:` value, which silently
+   breaks every element we toggle with el.hidden. Make the attribute win. */
+[hidden] { display: none !important; }
+
+/* — busy spinner inside buttons — */
+.spin {
+  width: 13px; height: 13px; flex: none; margin-right: 7px;
+  border: 2px solid rgba(32,30,29,.28); border-top-color: currentColor;
+  border-radius: 50%; display: inline-block;
+  animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spin { animation-duration: 2.4s; } }
+
+/* — modal shell shared by confirmations and the legal reader — */
+.modal-back {
+  position: fixed; inset: 0; z-index: 70; padding: 24px;
+  background: rgba(45,43,43,.5); display: grid; place-items: center;
+}
+.modal-box {
+  background: var(--pb-bg); width: min(420px,100%); padding: 24px;
+  max-height: 80vh; overflow: auto;
+}
+
+/* — crash notice — states what was sent, offers to say more, never blocks — */
+.crash-note {
+  position: fixed; left: 24px; right: 24px; bottom: 24px; z-index: 80;
+  display: flex; flex-wrap: wrap; gap: 12px; align-items: baseline;
+  background: var(--pb-ink); color: var(--pb-inkInverse);
+  border-top: 4px solid var(--pb-revoked); padding: 12px 24px; font-size: 13px;
+}
+.crash-note .btn-ghost { color: var(--pb-accent); }
+@media (min-width: 720px) { .crash-note { left: auto; max-width: 560px; } }
+
+/* ═══ dark theme ═══════════════════════════════════════════════════════════
+   Token-level, so components never name a colour directly. The toggle stamps
+   data-theme on <html>, which must beat the OS preference in both directions. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --pb-bg: #17161c; --pb-surface: #201e26; --pb-ink: #ece9f2;
+    --pb-inkInverse: #17161c; --pb-muted: #9b96a6;
+    --pb-blue: #8fa4ea; --pb-liveInk: #4ddba4; --pb-revokedInk: #ff9a6d;
+  }
+}
+:root[data-theme="dark"] {
+  --pb-bg: #17161c; --pb-surface: #201e26; --pb-ink: #ece9f2;
+  --pb-inkInverse: #17161c; --pb-muted: #9b96a6;
+  --pb-blue: #8fa4ea; --pb-liveInk: #4ddba4; --pb-revokedInk: #ff9a6d;
+}
+:root[data-theme="dark"] .result,
+:root[data-theme="dark"] .modal-box,
+:root[data-theme="dark"] .code-card { background: var(--pb-surface); }
+:root[data-theme="dark"] .nav,
+:root[data-theme="dark"] .panel,
+:root[data-theme="dark"] .input,
+:root[data-theme="dark"] .codebox,
+:root[data-theme="dark"] footer { border-color: rgba(236,233,242,.22); }
+:root[data-theme="dark"] .btn-secondary { border-color: rgba(236,233,242,.3); }
+:root[data-theme="dark"] .btn-secondary:hover { background: rgba(236,233,242,.09); }
+:root[data-theme="dark"] .field > label { color: rgba(236,233,242,.72); }
+:root[data-theme="dark"] .input { background: var(--pb-surface); color: var(--pb-ink); }
+:root[data-theme="dark"] a, :root[data-theme="dark"] .btn-ghost { color: #ff8fcb; }
+:root[data-theme="dark"] hr { background: rgba(236,233,242,.22) !important; }
+
+/* ═══ theme toggle — one icon that morphs, not two that swap ═══ */
+.theme-toggle {
+  width: 38px; height: 38px; padding: 0; border: 1px solid rgba(128,128,128,.35);
+  background: none; cursor: pointer; display: inline-grid; place-items: center;
+  color: var(--pb-ink); flex: none;
+}
+.theme-toggle:hover { border-color: var(--pb-accent); color: var(--pb-accent); }
+.theme-toggle svg { width: 18px; height: 18px; overflow: visible; }
+.tt-core { transition: r .45s cubic-bezier(.4,0,.2,1); }
+.tt-mask { transition: transform .45s cubic-bezier(.4,0,.2,1); }
+.tt-rays { transition: opacity .3s ease, transform .45s cubic-bezier(.4,0,.2,1);
+  transform-origin: 12px 12px; }
+:root.pb-dark .tt-core { r: 7; }
+:root.pb-dark .tt-mask { transform: translate(-7px, -7px); }
+:root.pb-dark .tt-rays { opacity: 0; transform: scale(.4) rotate(-40deg); }
+@media (prefers-reduced-motion: reduce) {
+  .tt-core, .tt-mask, .tt-rays { transition: none; }
+}
+
+/* ═══ rotating statement ═══
+   All lines share one grid cell, so the box is always as tall as the LONGEST
+   line and nothing below it moves or gets overlapped. Absolute positioning was
+   the bug: only the first line reserved height, so a three-line variant spilled
+   over the paragraph beneath. */
+.rotator { display: grid; }
+.rotator > span {
+  grid-area: 1 / 1; align-self: start;
+  opacity: 0; transform: translateY(.18em);
+  transition: opacity .5s ease, transform .5s cubic-bezier(.2,.7,.2,1);
+}
+.rotator > span[data-on] { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  .rotator > span { transition: opacity .3s ease; transform: none; }
+}
+
+/* ═══ footer ═══ */
+footer {
+  border-top: 2px solid rgba(128,128,128,.4); margin-top: 84px;
+  padding: 24px 42px; display: flex; flex-wrap: wrap; gap: 12px 24px;
+  align-items: center; font-size: 13px;
+}
+.footer-mark { font-family: var(--pb-display); font-weight: 700; font-size: 19px;
+  letter-spacing: -0.04em; }
+.footer-by { font-family: var(--pb-ui); font-size: 10.5px; letter-spacing: .05em;
+  color: var(--pb-muted); }
+
+/* — trial banner: states the trade-off before anything is generated — */
+.trial-note {
+  border-left: 4px solid var(--pb-accent); background: var(--pb-surface);
+  padding: 12px 16px; margin-bottom: 24px; display: grid; gap: 4px;
+  font-size: 13px; max-width: 68ch;
+}
+.trial-note strong { font-family: var(--pb-ui); font-size: 11px;
+  letter-spacing: .08em; text-transform: uppercase; }
+
+/* — trial banner: states the trade-off before anything is generated — */
+.trial-note {
+  border-left: 4px solid var(--pb-accent); background: var(--pb-surface);
+  padding: 12px 16px; margin-bottom: 24px; display: grid; gap: 4px;
+  font-size: 13px; max-width: 68ch;
+}
+.trial-note strong { font-family: var(--pb-ui); font-size: 11px;
+  letter-spacing: .08em; text-transform: uppercase; }

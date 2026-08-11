@@ -1,0 +1,48 @@
+Identity — local stack
+  laptop : http://127.0.0.1:8000
+  phone  : http://192.168.1.5:8000   (same Wi-Fi)
+  db     : /home/harsh/photobind/run/identity.db
+  admin  : x-admin-token: local-dev-admin
+
+INFO:     Started server process [14521]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     [photobind.access] GET / 200
+INFO:     127.0.0.1:37678 - "GET / HTTP/1.1" 200 OK
+INFO:     [photobind.access] GET / 200
+INFO:     127.0.0.1:34092 - "GET / HTTP/1.1" 200 OK
+INFO:     [photobind.access] GET /static/styles.css?v=1786368487 200
+INFO:     127.0.0.1:34092 - "GET /static/styles.css?v=1786368487 HTTP/1.1" 200 OK
+INFO:     [photobind.access] GET /static/app.js?v=1786368487 200
+INFO:     127.0.0.1:34094 - "GET /static/app.js?v=1786368487 HTTP/1.1" 200 OK
+INFO:     [photobind.access] GET /static/sync.js?v=1786368487 200
+INFO:     127.0.0.1:34092 - "GET /static/sync.js?v=1786368487 HTTP/1.1" 200 OK
+INFO:     [photobind.access] GET /static/legal.js?v=1786368487 200
+INFO:     127.0.0.1:34108 - "GET /static/legal.js?v=1786368487 HTTP/1.1" 200 OK
+INFO:     [photobind.access] GET /static/chrome.js?v=1786368487 200
+INFO:     127.0.0.1:34098 - "GET /static/chrome.js?v=1786368487 HTTP/1.1" 200 OK
+INFO:     [photobind.access] GET /static/download.js?v=1786368487 200
+INFO:     127.0.0.1:34124 - "GET /static/download.js?v=1786368487 HTTP/1.1" 200 OK
+INFO:     [photobind.access] GET /static/feedback.js?v=1786368487 200
+INFO:     127.0.0.1:34112 - "GET /static/feedback.js?v=1786368487 HTTP/1.1" 200 OK
+INFO:     [photobind.access] GET /static/tokens.css 200
+INFO:     127.0.0.1:34092 - "GET /static/tokens.css HTTP/1.1" 200 OK
+INFO:     [photobind.access] GET /static/site.webmanifest 200
+INFO:     127.0.0.1:34126 - "GET /static/site.webmanifest HTTP/1.1" 200 OK
+INFO:     [photobind.access] GET /static/assets/hero.jpg 200
+INFO:     127.0.0.1:34092 - "GET /static/assets/hero.jpg HTTP/1.1" 200 OK
+INFO:     [photobind.access] GET /v1/me 401
+INFO:     127.0.0.1:34092 - "GET /v1/me HTTP/1.1" 401 Unauthorized
+INFO:     [photobind.access] GET /v1/app/latest 200
+INFO:     127.0.0.1:34112 - "GET /v1/app/latest HTTP/1.1" 200 OK
+INFO:     [photobind.access] GET /v1/events 200
+INFO:     127.0.0.1:34134 - "GET /v1/events HTTP/1.1" 200 OK
+INFO:     [photobind.access] GET /static/favicon.svg 200
+INFO:     127.0.0.1:34140 - "GET /static/favicon.svg HTTP/1.1" 200 OK
+INFO:     [photobind.access] GET /static/icon-192.png 200
+INFO:     127.0.0.1:34140 - "GET /static/icon-192.png HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [14521]

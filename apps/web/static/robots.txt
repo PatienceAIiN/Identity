@@ -1,0 +1,25 @@
+User-agent: *
+Allow: /
+Allow: /app/terms.html
+Allow: /app/privacy.html
+Allow: /app/changelog.html
+
+# Resolution pages are per-share private links — never index them, and never
+# follow one (the key lives in the fragment and must not be crawled or cached).
+Disallow: /r/
+Noindex: /r/
+
+# Signed-in surfaces have nothing to index.
+Disallow: /app/auth.html
+Disallow: /app/new.html
+Disallow: /app/codes.html
+Disallow: /app/scan.html
+Disallow: /v1/
+
+Sitemap: https://identity.patienceai.in/sitemap.xml
+
+# Operator and developer surfaces are not for crawlers.
+Disallow: /admin
+Disallow: /app/admin.html
+Disallow: /app/dev.html
+Disallow: /c/

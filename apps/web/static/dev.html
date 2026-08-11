@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Developers — Identity by Patience AI</title>
+<meta name="description" content="API keys and signed-request documentation for integrating Identity into your own app.">
+<meta name="robots" content="noindex,follow">
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/styles.css">
+<style>
+  /* Room for the pinned footer, so the last control on a tab is never sitting
+     under it. Top clearance for the pinned navbar is measured and applied by
+     chrome.js, which is why only the bottom is set here. */
+  body { padding-bottom: 84px; }
+</style>
+</head>
+<body>
+<nav class="nav">
+  <a class="nav-brand" href="/dev">Identity developers</a>
+  <span class="mono muted" id="who" style="font-size:11px;margin-left:auto"></span>
+  <button class="btn btn-ghost" id="dev-signout" hidden>Sign out</button>
+</nav>
+<div class="wrap" id="dev-gate" hidden style="max-width:460px">
+  <h3 style="margin-bottom:8px">Developer sign-in</h3>
+  <div style="display:inline-flex;border:1px solid rgba(32,30,29,.4);margin-bottom:12px">
+    <label style="display:inline-flex;align-items:center;gap:6px;padding:8px 12px;font-size:13px;cursor:pointer">
+      <input type="radio" name="dmode" value="signin" checked>Sign in</label>
+    <label style="display:inline-flex;align-items:center;gap:6px;padding:8px 12px;font-size:13px;cursor:pointer;border-left:1px solid rgba(32,30,29,.4)">
+      <input type="radio" name="dmode" value="signup">Sign up</label>
+  </div>
+  <div class="field" id="d-name-row" hidden style="margin-bottom:12px">
+    <label for="d-name">Name or company</label>
+    <input id="d-name" class="input" placeholder="Acme Ltd" autocomplete="organization">
+  </div>
+  <div class="field" style="margin-bottom:12px">
+    <label for="d-email">Email</label>
+    <input id="d-email" type="email" class="input" placeholder="you@company.com" autocomplete="email">
+  </div>
+  <div class="field" style="margin-bottom:12px">
+    <label for="d-pass">Password</label>
+    <div class="pw">
+      <input id="d-pass" type="password" class="input" placeholder="at least 12 characters" autocomplete="current-password">
+      <button type="button" class="pw-eye" id="d-eye" aria-label="Show password" aria-pressed="false">
+        <svg id="d-eye-open" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+        <svg id="d-eye-shut" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" hidden><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"/><line x1="3" y1="21" x2="21" y2="3"/></svg>
+      </button>
+    </div>
+  </div>
+  <p class="err" id="d-err" hidden style="margin-bottom:12px"></p>
+  <button class="btn btn-primary btn-block" id="d-go">Sign in</button>
+  <p class="mono muted" style="font-size:11px;margin:12px 0 0">signing up with an
+    address that already has an Identity account keeps any keys it already holds</p>
+</div>
+
+<div class="wrap" id="dev-verify" hidden style="max-width:460px">
+  <h3 style="margin-bottom:8px">Check your email</h3>
+  <p style="font-size:14px;margin-bottom:12px">We sent a 6-digit code to
+    <strong class="mono" id="d-verify-email" style="font-size:13px"></strong>.
+    Your developer account is created when you enter it.</p>
+  <div class="field" style="margin-bottom:12px">
+    <label for="d-code">Verification code</label>
+    <input id="d-code" class="input mono" inputmode="numeric" maxlength="6"
+           autocomplete="one-time-code" placeholder="000000"
+           style="font-size:22px;letter-spacing:.3em;text-align:center">
+  </div>
+  <p class="err" id="d-verify-err" hidden style="margin-bottom:12px"></p>
+  <p class="mono muted" id="d-verify-note" hidden style="font-size:10.5px;margin-bottom:12px"></p>
+  <button class="btn btn-primary btn-block" id="d-verify-go">Verify and create account</button>
+  <div style="display:flex;gap:12px;margin-top:12px">
+    <button class="btn btn-ghost" id="d-resend">Send a new code</button>
+    <button class="btn btn-ghost" id="d-back">Use a different email</button>
+  </div>
+</div>
+
+<div class="wrap" id="dev-body" hidden style="max-width:880px">
+  <h3 style="margin-bottom:8px">Developers</h3>
+  <div id="dev-tabs" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:42px;border-bottom:2px solid rgba(32,30,29,.25);padding-bottom:12px">
+    <button class="btn btn-ghost" data-tab="keys">Keys</button>
+    <button class="btn btn-ghost" data-tab="usage">Usage</button>
+    <button class="btn btn-ghost" data-tab="endpoint">Endpoint</button>
+    <button class="btn btn-ghost" data-tab="test">Try a key</button>
+    <button class="btn btn-ghost" data-tab="prompt">AI prompt</button>
+    <button class="btn btn-ghost" data-tab="docs">Signing</button>
+    <button class="btn btn-ghost" data-tab="account">Account</button>
+  </div>
+
+  <section data-panel="keys">
+    <p class="kicker">your keys</p>
+    <div style="display:flex;gap:12px;align-items:flex-end;margin-bottom:24px;flex-wrap:wrap">
+      <div class="field" style="flex:1;min-width:220px">
+        <label for="kname">Name this key</label>
+        <input id="kname" class="input" placeholder="my android app">
+      </div>
+      <button class="btn btn-primary" id="mint">Create a key</button>
+    </div>
+    <div id="fresh" hidden style="border:2px solid var(--pb-accent);padding:24px;margin-bottom:24px">
+      <p class="kicker">shown once</p>
+      <p style="font-size:14px;margin-bottom:12px">Copy the secret now. It's stored
+        encrypted and can't be shown again — if you lose it, revoke this key and
+        make another.</p>
+      <p class="mono" style="font-size:12px;overflow-wrap:anywhere" id="fresh-id"></p>
+      <p class="mono" style="font-size:12px;overflow-wrap:anywhere;font-weight:700" id="fresh-secret"></p>
+      <button class="btn btn-secondary" id="copy-secret" style="margin-top:12px">Copy secret</button>
+    </div>
+    <div id="keys"></div>
+  </section>
+
+  <section data-panel="usage">
+    <p class="kicker">usage</p>
+    <div id="usage" class="mono muted" style="font-size:11.5px;line-height:1.9"></div>
+  </section>
+
+  <section data-panel="endpoint">
+    <p class="kicker">your endpoint</p>
+    <p style="font-size:14px;max-width:60ch;margin-bottom:12px">This is the base URL
+      to call from your Android or web project. Paths below are appended to it.</p>
+    <p class="mono" id="base-url"
+       style="font-size:14px;font-weight:700;background:var(--pb-surface);padding:16px;overflow-wrap:anywhere;margin:0 0 12px"></p>
+    <button class="btn btn-secondary" id="copy-base">Copy base URL</button>
+  </section>
+
+  <section data-panel="test">
+    <p class="kicker">try a key</p>
+    <p style="font-size:14px;max-width:60ch;margin-bottom:12px">Signs a real request
+      in this browser and calls the API with it. The secret is used here and sent
+      nowhere — it never leaves this page.</p>
+    <div class="field" style="margin-bottom:12px;max-width:420px">
+      <label for="t-id">Key id</label>
+      <input id="t-id" class="input mono" style="font-size:12px" placeholder="pbk_...">
+    </div>
+    <div class="field" style="margin-bottom:12px;max-width:420px">
+      <label for="t-secret">Secret</label>
+      <input id="t-secret" type="password" class="input mono" style="font-size:12px"
+             placeholder="the secret shown when you created the key">
+    </div>
+    <button class="btn btn-primary" id="run-test">Send a signed GET /api/v1/codes</button>
+    <pre class="mono" id="t-out" hidden
+         style="background:var(--pb-surface);padding:16px;overflow-x:auto;font-size:11.5px;margin-top:16px;line-height:1.7"></pre>
+  </section>
+
+  <section data-panel="prompt">
+    <p class="kicker">integration prompt</p>
+    <p style="font-size:14px;max-width:60ch;margin-bottom:12px">A brief you can paste
+      into an AI assistant to have it write the integration for you. Pick the target
+      and copy — it carries your key id and the exact signing rules, and it tells the
+      assistant never to hardcode the secret.</p>
+    <div style="display:inline-flex;border:1px solid rgba(32,30,29,.4);margin-bottom:12px;flex-wrap:wrap" id="targets">
+      <label style="display:inline-flex;align-items:center;gap:6px;padding:9px 12px;font-size:13px;cursor:pointer">
+        <input type="radio" name="target" value="android" checked>Android · Kotlin</label>
+      <label style="display:inline-flex;align-items:center;gap:6px;padding:9px 12px;font-size:13px;cursor:pointer;border-left:1px solid rgba(32,30,29,.4)">
+        <input type="radio" name="target" value="web">Web · JS</label>
+      <label style="display:inline-flex;align-items:center;gap:6px;padding:9px 12px;font-size:13px;cursor:pointer;border-left:1px solid rgba(32,30,29,.4)">
+        <input type="radio" name="target" value="node">Node · server</label>
+      <label style="display:inline-flex;align-items:center;gap:6px;padding:9px 12px;font-size:13px;cursor:pointer;border-left:1px solid rgba(32,30,29,.4)">
+        <input type="radio" name="target" value="python">Python</label>
+    </div>
+    <div class="field" style="max-width:420px;margin-bottom:12px">
+      <label for="p-key">Key id to reference (optional)</label>
+      <input id="p-key" class="input mono" style="font-size:12px" placeholder="pbk_...">
+    </div>
+    <button class="btn btn-primary" id="copy-prompt">Copy the prompt</button>
+    <pre class="mono" id="prompt-out"
+         style="background:var(--pb-surface);padding:16px;overflow-x:auto;font-size:11.5px;margin-top:16px;line-height:1.7;white-space:pre-wrap"></pre>
+  </section>
+
+  <section data-panel="docs">
+    <p class="kicker">how to sign a request</p>
+    <p style="font-size:14px;max-width:62ch">Build the string below, HMAC-SHA256 it
+      with your secret, and send the hex digest. Timestamps more than five minutes
+      out are refused, and a nonce can't be used twice.</p>
+    <pre class="mono" style="background:var(--pb-surface);padding:24px;overflow-x:auto;font-size:12px;line-height:1.8">METHOD \n PATH \n TIMESTAMP \n NONCE \n SHA256(BODY)
+
+headers:
+  X-Api-Key:       pbk_...
+  X-Api-Timestamp: 1765432100        (unix seconds)
+  X-Api-Nonce:     any-unique-string
+  X-Api-Signature: hex(HMAC-SHA256(secret, string above))
+
+endpoints:
+  GET    /api/v1/codes                  list your codes        codes:read
+  GET    /api/v1/codes/{credential_id}  one code               codes:read
+  POST   /api/v1/codes                  create                 codes:write
+  PATCH  /api/v1/shares/{share_id}      label, expiry, cap     codes:write
+  DELETE /api/v1/shares/{share_id}      switch one copy off    codes:write
+  DELETE /api/v1/codes/{credential_id}  delete outright        codes:write
+
+POST /api/v1/codes body:
+  { "photo_b64": "...", "ciphertext_b64": "...", "nonce_b64": "...",
+    "label": "partner app", "fragment_key": "...", "coverage": "full" }
+
+We never accept a plaintext payload. Encrypt on your side; send ciphertext.</pre>
+  </section>
+
+  <section data-panel="account">
+    <p class="kicker">this account</p>
+    <p style="font-size:14px;max-width:56ch;margin-bottom:12px">Deleting the developer
+      account revokes every key it holds, immediately. Codes already created through
+      the API keep working under the account that owns them.</p>
+    <button class="btn btn-secondary" id="dev-delete"
+            style="border-color:var(--pb-revoked);color:var(--pb-revokedInk)">Delete developer account</button>
+  </section>
+</div>
+<script src="/static/app.js"></script>
+<script src="/static/consent.js"></script>
+<script src="/static/chrome.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+
+let devMode = "signin";
+let pendingEmail = "";
+document.querySelectorAll('input[name="dmode"]').forEach(r =>
+  r.addEventListener("change", (e) => {
+    devMode = e.target.value;
+    $("d-name-row").hidden = devMode !== "signup";
+    $("d-go").textContent = devMode === "signup" ? "Create developer account" : "Sign in";
+    $("d-pass").autocomplete = devMode === "signup" ? "new-password" : "current-password";
+    $("d-err").hidden = true;
+  }));
+
+$("d-go").addEventListener("click", async () => {
+  $("d-err").hidden = true;
+  const done = withSpinner($("d-go"), devMode === "signup" ? "Creating" : "Signing in");
+  try {
+    // Signing in takes an address and a password and nothing else — the schema
+    // rejects unknown fields, so sending `name` here failed every attempt with a
+    // validation error rather than a wrong-password message.
+    const email = $("d-email").value.trim();
+    const password = $("d-pass").value;
+    const signingUp = devMode === "signup";
+    const body = signingUp
+      ? { name: $("d-name").value.trim(), email, password }
+      : { email, password };
+    const r = await api(signingUp ? "/v1/dev/auth/signup" : "/v1/dev/auth/signin", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    $("d-pass").value = "";
+    if (signingUp) {
+      // Nothing exists yet: the account is created by the emailed code.
+      pendingEmail = email;
+      $("d-verify-email").textContent = email;
+      $("dev-gate").hidden = true;
+      $("dev-verify").hidden = false;
+      if (r && r.delivery && r.delivery !== "smtp" && r.delivery !== "brevo-api") {
+        $("d-verify-note").textContent =
+          "email isn't configured on this server, so the code went to its log";
+        $("d-verify-note").hidden = false;
+      }
+      return;
+    }
+    boot();
+  } catch (e) {
+    $("d-err").textContent = e.message;
+    $("d-err").hidden = false;
+  } finally { done(); }
+});
+
+$("d-verify-go").addEventListener("click", async () => {
+  $("d-verify-err").hidden = true;
+  const code = $("d-code").value.trim();
+  if (!/^\d{6}$/.test(code)) {
+    $("d-verify-err").textContent = "Enter the 6-digit code from the email.";
+    $("d-verify-err").hidden = false;
+    return;
+  }
+  const done = withSpinner($("d-verify-go"), "Verifying");
+  try {
+    await api("/v1/dev/auth/verify", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: pendingEmail, code }),
+    });
+    $("dev-verify").hidden = true;
+    boot();
+  } catch (e) {
+    $("d-verify-err").textContent = e.message;
+    $("d-verify-err").hidden = false;
+  } finally { done(); }
+});
+
+$("d-resend").addEventListener("click", async () => {
+  try {
+    await api("/v1/dev/auth/resend", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: pendingEmail }),
+    });
+    toast("New code sent");
+  } catch (e) { toast(e.message); }
+});
+
+$("d-back").addEventListener("click", () => {
+  $("dev-verify").hidden = true;
+  $("dev-gate").hidden = false;
+});
+
+$("d-eye").addEventListener("click", () => {
+  const f = $("d-pass");
+  const show = f.type === "password";
+  f.type = show ? "text" : "password";
+  $("d-eye").setAttribute("aria-pressed", String(show));
+  $("d-eye").setAttribute("aria-label", show ? "Hide password" : "Show password");
+  $("d-eye-open").hidden = show;
+  $("d-eye-shut").hidden = !show;
+  f.focus();
+});
+
+$("dev-delete")?.addEventListener("click", async () => {
+  const ok = await confirmAction({
+    title: "Delete this developer account?",
+    body: "Every key it holds is revoked immediately and any integration using "
+        + "one stops working. This cannot be undone.",
+    confirmLabel: "Delete", destructive: true, requireText: "DELETE",
+  });
+  if (!ok) return;
+  const done = withSpinner($("dev-delete"), "Deleting");
+  try {
+    await api("/v1/dev/account?confirm=DELETE", { method: "DELETE" });
+    toast("Developer account deleted");
+    setTimeout(() => location.reload(), 700);
+  } catch (e) { done(); toast(e.message); }
+});
+
+$("dev-signout").addEventListener("click", async () => {
+  await api("/v1/dev/auth/signout", { method: "POST" });
+  location.reload();
+});
+
+async function boot() {
+  let me;
+  try { me = await api("/v1/dev/me"); }
+  catch (_) {
+    $("dev-body").hidden = true;
+    // Leave the verification step alone if that is where the person is.
+    if ($("dev-verify").hidden) $("dev-gate").hidden = false;
+    return;
+  }
+  $("dev-gate").hidden = true;
+  $("dev-body").hidden = false;
+  $("who").textContent = me.email;
+  $("dev-signout").hidden = false;
+  load();
+}
+
+async function load() {
+  const { keys } = await api("/v1/dev/keys");
+  $("keys").innerHTML = keys.length ? keys.map(k => `
+    <div style="border:1px solid rgba(32,30,29,.4);padding:16px;margin-bottom:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+      <div style="flex:1;min-width:200px">
+        <p class="mono" style="font-size:12px;font-weight:700;margin:0 0 4px;overflow-wrap:anywhere">${k.key_id}</p>
+        <p class="mono muted" style="font-size:10.5px;margin:0">${k.name || "unnamed"} ·
+          ${k.scopes.join(" ")} · ${k.call_count} calls ·
+          ${k.revoked_at ? "revoked" : (k.last_used_at ? "last used " + k.last_used_at.slice(0,16).replace("T"," ") : "never used")}</p>
+      </div>
+      ${k.revoked_at ? "" : `<button class="btn btn-secondary" data-revoke="${k.key_id}">Revoke</button>`}
+    </div>`).join("") : `<p class="mono muted" style="font-size:11px">no keys yet</p>`;
+
+  $("keys").querySelectorAll("[data-revoke]").forEach(b =>
+    b.addEventListener("click", async () => {
+      const ok = await confirmAction({
+        title: "Revoke this key?",
+        body: "Any app still using it stops working immediately. This cannot be undone.",
+        confirmLabel: "Revoke", destructive: true,
+      });
+      if (!ok) return;
+      const done = withSpinner(b, "Revoking");
+      try {
+        await api("/v1/dev/keys/" + b.dataset.revoke, { method: "DELETE" });
+        toast("Revoked");
+        load();
+      } catch (e) { done(); toast(e.message); }
+    }));
+
+  const u = await api("/v1/dev/usage");
+  $("usage").innerHTML = u.days.length
+    ? u.days.map(d => `<div>${d.day} · ${d.key_id} · ${d.count} calls${d.rejected ? " · " + d.rejected + " refused" : ""}</div>`).join("")
+    : "<div>no calls yet</div>";
+}
+
+$("mint").addEventListener("click", async () => {
+  const ok = await confirmAction({
+    title: "Create a new API key?",
+    body: "The secret is shown once and cannot be shown again. Have somewhere "
+        + "ready to store it before you continue.",
+    confirmLabel: "Create the key",
+  });
+  if (!ok) return;
+  const done = withSpinner($("mint"), "Creating");
+  try {
+    const r = await api("/v1/dev/keys", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: $("kname").value.trim() }),
+    });
+    $("fresh-id").textContent = "key id:  " + r.key_id;
+    $("fresh-secret").textContent = "secret:  " + r.secret;
+    $("fresh").hidden = false;
+    $("copy-secret").onclick = () => {
+      navigator.clipboard?.writeText(r.secret);
+      toast("Secret copied");
+    };
+    $("kname").value = "";
+    load();
+  } catch (e) { toast(e.message); } finally { done(); }
+});
+
+$("base-url").textContent = location.origin;
+$("copy-base").addEventListener("click", () => {
+  navigator.clipboard?.writeText(location.origin);
+  toast("Base URL copied");
+});
+
+/* Signing, in the browser, with WebCrypto — the same string the server rebuilds:
+   METHOD, path, timestamp, nonce, and a SHA-256 of the body. */
+async function hmacHex(secret, message) {
+  const key = await crypto.subtle.importKey(
+    "raw", new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const mac = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(message));
+  return [...new Uint8Array(mac)].map(b => b.toString(16).padStart(2, "0")).join("");
+}
+async function sha256Hex(bytes) {
+  const d = await crypto.subtle.digest("SHA-256", bytes);
+  return [...new Uint8Array(d)].map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+$("run-test").addEventListener("click", async () => {
+  const keyId = $("t-id").value.trim();
+  const secret = $("t-secret").value.trim();
+  const out = $("t-out");
+  out.hidden = false;
+  if (!keyId || !secret) { out.textContent = "Enter the key id and its secret."; return; }
+  const done = withSpinner($("run-test"), "Calling");
+  const method = "GET", path = "/api/v1/codes";
+  const ts = String(Math.floor(Date.now() / 1000));
+  const nonce = crypto.randomUUID();
+  try {
+    const bodyHash = await sha256Hex(new Uint8Array());
+    const signature = await hmacHex(secret,
+      [method, path, ts, nonce, bodyHash].join("\n"));
+    const res = await fetch(path, {
+      method,
+      headers: {
+        "X-Api-Key": keyId, "X-Api-Timestamp": ts,
+        "X-Api-Nonce": nonce, "X-Api-Signature": signature,
+      },
+    });
+    const text = await res.text();
+    out.textContent = `${method} ${location.origin}${path}\n`
+      + `-> ${res.status} ${res.statusText}\n\n${text}`
+      + (res.status === 401
+         ? "\n\n401 means the signature, the key, or the clock didn't match. "
+         + "Check you pasted the secret for this key id."
+         : "");
+  } catch (e) {
+    out.textContent = "Request failed: " + e.message;
+  } finally { done(); }
+});
+
+/* The prompt. Written as a brief rather than a code dump so the assistant
+   produces something that fits the caller's project — and with the security
+   rules stated, because an assistant left to guess will cheerfully paste the
+   secret into an Android app. */
+const TARGET_NOTES = {
+  android: `Target: Android, Kotlin, OkHttp (or Ktor). Compose UI if UI is needed.
+- Do NOT put the secret in the APK. Ship a small backend that holds the secret and
+  signs on the app's behalf, and have the app call your backend. Anything in an APK
+  is readable by anyone who downloads it.
+- If this is a prototype and the secret must live on-device anyway, say so in a
+  comment and keep it in EncryptedSharedPreferences, never in source or gradle.
+- Use javax.crypto Mac with HmacSHA256 for the signature and MessageDigest
+  SHA-256 for the body digest.`,
+  web: `Target: browser JavaScript.
+- Do NOT sign in the browser with a real secret: anything the page can read, a
+  visitor can read. Put the secret in a server route and call that route from the
+  page.
+- If you are writing a local test tool only, WebCrypto (crypto.subtle) with HMAC
+  SHA-256 is the right API and you should say clearly in a comment that it is not
+  for production.`,
+  node: `Target: Node.js server (Express or Fastify).
+- Keep the secret in an environment variable, never in the repository.
+- Use node:crypto createHmac("sha256", secret) and createHash("sha256") for the
+  body digest.
+- Expose only what your own client needs; do not proxy the whole API blindly.`,
+  python: `Target: Python (httpx or requests).
+- Keep the secret in an environment variable, never in the repository.
+- Use hmac.new(secret.encode(), msg, hashlib.sha256).hexdigest().`,
+};
+
+function buildPrompt() {
+  const target = document.querySelector('input[name="target"]:checked').value;
+  const keyId = ($("p-key").value.trim() || "pbk_YOUR_KEY_ID");
+  return `Write an integration with the Identity photo-code API.
+
+BASE URL
+  ${location.origin}
+
+AUTHENTICATION — every request is signed. There is no bearer token.
+  Headers on every call:
+    X-Api-Key:       ${keyId}
+    X-Api-Timestamp: unix seconds as a string
+    X-Api-Nonce:     a fresh unique string per request (a UUID is fine)
+    X-Api-Signature: lowercase hex of HMAC-SHA256(secret, STRING_TO_SIGN)
+
+  STRING_TO_SIGN is these five parts joined by a single newline (\n), in order:
+    1. the HTTP method, uppercase          e.g. GET
+    2. the request path, no host, no query e.g. /api/v1/codes
+    3. the same timestamp sent in the header
+    4. the same nonce sent in the header
+    5. lowercase hex SHA-256 of the raw request body (of the empty string for GET)
+
+  Rules the server enforces, so handle them:
+    - a timestamp more than 300s from the server's clock is rejected (401)
+    - a nonce may not be reused (401) — generate a new one per request
+    - the signature covers the path, so a signature is not reusable elsewhere
+    - 30 requests per minute per key (429, with Retry-After)
+    - the key's scopes are checked: codes:read for reads, codes:write for writes
+
+ENDPOINTS
+  GET    /api/v1/codes                  list codes           codes:read
+  GET    /api/v1/codes/{credential_id}  one code             codes:read
+  POST   /api/v1/codes                  create a code        codes:write
+  PATCH  /api/v1/shares/{share_id}      label/expiry/cap     codes:write
+  DELETE /api/v1/shares/{share_id}      switch a copy off    codes:write
+  DELETE /api/v1/codes/{credential_id}  delete a code        codes:write
+
+CREATING A CODE — the payload must already be encrypted.
+  POST /api/v1/codes with JSON:
+    { "photo_b64": "<base64 of a jpeg or png>",
+      "ciphertext_b64": "<AES-256-GCM ciphertext, base64url>",
+      "nonce_b64": "<96-bit nonce, base64url>",
+      "label": "where this copy is going",
+      "fragment_key": "<the base64url key, used only to build the QR>",
+      "coverage": "full" }
+  The server refuses a plaintext payload outright. Encrypt with AES-256-GCM on
+  your side: 256-bit key, 96-bit nonce, 128-bit tag appended to the ciphertext.
+  The key belongs in the URL fragment after # so it never reaches the server.
+  The response includes resolution_url and image_png_b64.
+
+${TARGET_NOTES[target]}
+
+WHAT I WANT
+  A small, documented client with one function per endpoint, a single signing
+  helper, real error handling for 401/403/429, and a short README showing one
+  create and one revoke. Do not invent endpoints or fields beyond those above.`;
+}
+
+function renderPrompt() { $("prompt-out").textContent = buildPrompt(); }
+document.querySelectorAll('input[name="target"]').forEach(r =>
+  r.addEventListener("change", renderPrompt));
+$("p-key").addEventListener("input", renderPrompt);
+$("copy-prompt").addEventListener("click", () => {
+  navigator.clipboard?.writeText(buildPrompt());
+  toast("Prompt copied");
+});
+renderPrompt();
+
+/* Tabs, so the console is a set of places rather than one long scroll. The
+   selected one is the only one in the document flow, which also keeps the page
+   short enough to read without hunting. */
+function showTab(name) {
+  document.querySelectorAll("[data-panel]").forEach((p) => {
+    p.hidden = p.dataset.panel !== name;
+  });
+  document.querySelectorAll("#dev-tabs [data-tab]").forEach((b) => {
+    const on = b.dataset.tab === name;
+    b.className = on ? "btn btn-primary" : "btn btn-ghost";
+    b.setAttribute("aria-current", on ? "page" : "false");
+  });
+  location.hash = name;
+}
+document.querySelectorAll("#dev-tabs [data-tab]").forEach((b) =>
+  b.addEventListener("click", () => showTab(b.dataset.tab)));
+showTab((location.hash || "#keys").slice(1));
+
+boot();
+</script>
+
+<footer id="dev-footer" style="position:fixed;left:0;right:0;bottom:0;z-index:40;
+    background:var(--pb-bg);border-top:2px solid rgba(32,30,29,.25);
+    padding:12px 24px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+  <span class="mono" style="font-size:12px;font-weight:700">Identity</span>
+  <span class="mono muted" style="font-size:11px">developer console</span>
+  <span class="mono muted" style="font-size:11px;margin-left:auto">A product of Patience AI</span>
+</footer>
+</body>
+</html>

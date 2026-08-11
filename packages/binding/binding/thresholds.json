@@ -1,0 +1,12 @@
+{
+  "derived_max": 0.02696,
+  "modified_min": 0.04696,
+  "tile_hash_min": 0.14375,
+  "tile_chroma_min": 6.67115,
+  "tile_energy_min": 0.81017,
+  "provenance": "calibrated on calibration split only; rule: 1.15*max(benign) per statistic, modified_min=derived_max+0.02 band; frozen before held-out run",
+  "calibration_benign_n": 180,
+  "calibration_benign_max": 0.02344,
+  "calibration_benign_p95": 0.00781,
+  "created_at": "2026-08-10T00:00:00+00:00"
+}

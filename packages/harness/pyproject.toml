@@ -1,0 +1,27 @@
+[project]
+name = "harness"
+version = "0.1.0"
+description = "Decode-rate test rig for photo-bound QR fusion (Phase 0 gate)"
+requires-python = ">=3.12"
+dependencies = [
+    "numpy",
+    "opencv-python-headless",
+    "zxing-cpp",
+    "segno",
+    "pillow",
+    "scikit-image",
+    "pyzbar",
+    "matplotlib",
+    "pandas",
+]
+
+[project.scripts]
+harness-sweep = "harness.sweep:main"
+harness-analyze = "harness.analyze:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["harness*"]

@@ -1,0 +1,9 @@
+numpy
+opencv-python-headless
+zxing-cpp
+segno
+pillow
+scikit-image
+pyzbar
+matplotlib
+pandas

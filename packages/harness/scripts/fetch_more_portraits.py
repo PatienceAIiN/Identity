@@ -1,0 +1,56 @@
+"""Phase 1 acceptance set: top up to ~50 portraits across skin tones,
+lighting, and framing. PD/GODL sources on Wikimedia Commons. Reuses the
+fetch/backoff/face-check logic from fetch_photos.py."""
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import fetch_photos as fp
+
+fp.CANDIDATES = [
+    "Mark_Kelly,_official_portrait,_116th_Congress.jpg",
+    "Raja_Chari_official_portrait.jpg",
+    "Jessica_Watkins_official_astronaut_portrait.jpg",
+    "Victor_Glover_official_portrait.jpg",
+    "Jeanette_Epps_official_portrait.jpg",
+    "Jonny_Kim_official_astronaut_portrait.jpg",
+    "Kayla_Barron_official_astronaut_portrait.jpg",
+    "Frank_Rubio_official_astronaut_portrait.jpg",
+    "Anil_Menon_official_astronaut_portrait.jpg",
+    "Sian_Proctor_ahead_of_Inspiration4_launch.jpg",
+    "Stephanie_Wilson_-_official_NASA_portrait.jpg",
+    "Joan_Higginbotham.jpg",
+    "Charles_Bolden_official_portrait.jpg",
+    "Franklin_Chang-Diaz.jpg",
+    "Sidney_Gutierrez.jpg",
+    "John_Herrington_NASA_portrait.jpg",
+    "Kalpana_Chawla_NASA_photo.jpg",
+    "Rakesh_Sharma_(cropped).jpg",
+    "Barack_Obama_family_portrait_2011.jpg",
+    "Antony_Blinken_official_portrait.jpg",
+    "Janet_Yellen_official_Federal_Reserve_portrait.jpg",
+    "Lloyd_Austin,_official_portrait.jpg",
+    "Deb_Haaland_official_portrait,_117th_Congress.jpg",
+    "Katanji_Brown_Jackson.jpg",
+    "Ketanji_Brown_Jackson_2022.jpg",
+    "Sonia_Sotomayor_2009.jpg",
+    "Elena_Kagan_official_portrait.jpg",
+    "Amy_Coney_Barrett_official_portrait.jpg",
+    "John_Roberts_official_portrait.jpg",
+    "Clarence_Thomas_official_SCOTUS_portrait.jpg",
+    "Samuel_Alito_official_photo.jpg",
+    "Neil_Gorsuch_official_portrait.jpg",
+    "Brett_Kavanaugh_official_portrait.jpg",
+    "Hillary_Clinton_official_Secretary_of_State_portrait_crop.jpg",
+    "John_Kerry_official_Secretary_of_State_portrait.jpg",
+    "Madeleine_Albright.jpg",
+    "General_Colin_Powell.jpg",
+    "Kamala_Harris_official_photo_(cropped2).jpg",
+    "Droupadi_Murmu_official_portrait_(cropped).jpg",
+    "The_official_photograph_of_Prime_Minister,_Shri_Narendra_Modi.jpg",
+    "Dr._S._Jaishankar_official_photo.jpg",
+    "Nirmala_Sitharaman_official_portrait.jpg",
+    "Guy_Bluford.jpg",
+    "Ellison_Onizuka.jpg",
+    "Judith_Resnik_-_NASA.jpg",
+]
+fp.main()

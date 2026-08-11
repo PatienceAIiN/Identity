@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      A night counterpart to this theme lives in values-night/. The framework has
+      no Material DayNight style to inherit, so the qualifier does the switching,
+      and having one at all is how the system knows this app handles dark mode
+      itself rather than needing to be converted automatically.
+      That conversion is what corrupted the UI on a phone in night mode: it
+      turned light panels dark, desaturated the accent, and flipped dark text to
+      light while leaving the page behind it light, so text matched its own
+      background exactly. forceDarkAllowed=false says the same thing a second
+      time, and Compose paints the real colours either way.
+    -->
+    <style name="Theme.Identity" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">#FFFFFF</item>
+        <item name="android:navigationBarColor">#FFFFFF</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowBackground">#FFFFFF</item>
+        <item name="android:forceDarkAllowed">false</item>
+    </style>
+
+    <!-- Splash: the product's own mark on its own ground, animated, handing
+         over to the first real frame rather than flashing a blank window. -->
+    <style name="Theme.Identity.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">#FFFFFF</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_mark</item>
+        <item name="windowSplashScreenAnimationDuration">700</item>
+        <item name="postSplashScreenTheme">@style/Theme.Identity</item>
+        <item name="android:forceDarkAllowed">false</item>
+    </style>
+</resources>

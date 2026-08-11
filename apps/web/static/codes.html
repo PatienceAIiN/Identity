@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Your codes — Identity by Patience AI</title>
+<meta name="description" content="Manage your photo-bound codes: revoke a share, read its scan log, open its public page.">
+<link rel="canonical" href="https://identity.patienceai.in/app/codes.html">
+<meta name="robots" content="noindex,follow">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Identity by Patience AI">
+<meta property="og:title" content="Your codes — Identity by Patience AI">
+<meta property="og:description" content="Manage your photo-bound codes: revoke a share, read its scan log, open its public page.">
+<meta property="og:url" content="https://identity.patienceai.in/app/codes.html">
+<meta property="og:image" content="https://identity.patienceai.in/static/icon-512.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Your codes — Identity by Patience AI">
+<meta name="twitter:description" content="Manage your photo-bound codes: revoke a share, read its scan log, open its public page.">
+<meta name="twitter:image" content="https://identity.patienceai.in/static/icon-512.png">
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/static/icon-32.png" sizes="32x32" type="image/png">
+<link rel="icon" href="/static/icon-16.png" sizes="16x16" type="image/png">
+<link rel="apple-touch-icon" href="/static/icon-180.png">
+<link rel="manifest" href="/static/site.webmanifest">
+<meta name="theme-color" content="#201e1d">
+<link rel="stylesheet" href="/static/styles.css">
+<style id="guard-preload">html{visibility:hidden}html.public{visibility:visible}</style>
+</head>
+<body data-requires-auth="1">
+<nav class="nav">
+  <a class="nav-brand" href="/">Identity</a>
+  <a href="/app/codes.html" aria-current="page">Codes</a>
+  <a href="/app/new.html">New code</a>
+  <a href="/app/scan.html">Scan</a>
+  <a href="/app/profile.html">Profile</a>
+</nav>
+<div class="wrap">
+  <div style="display:flex;align-items:baseline;gap:24px;margin-bottom:42px">
+    <h3 style="margin:0">Your codes</h3>
+    <span class="mono muted" id="count" style="font-size:11px"></span>
+    <a class="btn btn-primary" style="margin-left:auto" href="/app/new.html">New code</a>
+  </div>
+  <div id="grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),1fr));gap:24px"></div>
+  <p class="mono muted" id="empty" hidden style="font-size:11px">no codes yet — make one from “New code”</p>
+  <div id="pager" hidden style="display:flex;gap:12px;align-items:center;justify-content:center;margin-top:24px"></div>
+</div>
+<script src="/static/app.js"></script>
+<script src="/static/consent.js"></script>
+<script src="/static/chrome.js"></script>
+<script src="/static/download.js"></script>
+<script>
+const STATES = {
+  active:  { color: "var(--pb-live)",     tag: "tag-live",     label: "Live" },
+  revoked: { color: "var(--pb-revoked)",  tag: "tag-revoked",  label: "Revoked" },
+  expired: { color: "var(--pb-expiring)", tag: "tag-expiring", label: "Expired" },
+  scan_cap_reached: { color: "var(--pb-revoked)", tag: "tag-revoked", label: "Scan cap reached" },
+};
+
+let page = 0;
+
+window.load = async function load() {
+  const me = await requireAuth();
+  if (!me) return;
+  const data = await api("/v1/codes");
+  document.getElementById("count").textContent = data.count + " instances";
+  document.getElementById("empty").hidden = data.count > 0;
+  const grid = document.getElementById("grid");
+  grid.innerHTML = "";
+
+  // Paged, so a long list stays a list rather than an endless scroll. The page
+  // survives a reload of the same data, which matters because live updates call
+  // load() again and losing your place mid-review would be worse than useless.
+  const PER_PAGE = 9;
+  const pages = Math.max(1, Math.ceil(data.codes.length / PER_PAGE));
+  if (page >= pages) page = pages - 1;
+  const shown = data.codes.slice(page * PER_PAGE, page * PER_PAGE + PER_PAGE);
+  for (const c of shown) {
+    const st = STATES[c.state] || STATES.active;
+    const card = document.createElement("div");
+    card.className = "code-card";
+    card.style.setProperty("--corner", st.color);
+    card.innerHTML = `
+      <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span>
+      <div style="display:flex;gap:12px">
+        <img src="/v1/photos/${c.photo_id}.png" alt="" width="88" height="88"
+             style="flex:none;background:#fff;object-fit:cover;${c.state !== "active" ? "opacity:.45" : ""}">
+        <div style="min-width:0">
+          <p class="mono" style="font-size:13px;font-weight:700;margin:0 0 6px;overflow-wrap:anywhere">${c.opaque_resolution_id}</p>
+          <span class="tag ${st.tag}">${st.label}</span>
+          <p style="font-size:11px;color:var(--pb-muted);margin:6px 0 0">${c.label} · ${c.scan_count} scans · decode ${c.decode_rate}%</p>
+        </div>
+      </div>
+      <div class="mono muted" style="border-top:1px solid rgba(32,30,29,.4);padding-top:12px;font-size:10.5px;line-height:1.7">
+        ${c.log.map(l => `<div>${l}</div>`).join("") || "<div>no scans yet</div>"}
+      </div>
+      <div style="display:flex;gap:12px;margin-top:auto">
+        ${c.state === "active" ? `<button class="btn btn-secondary" data-revoke="${c.share_id}">Revoke</button>` : ""}
+        <a class="btn btn-ghost" href="/r/${c.opaque_resolution_id}" target="_blank" rel="noopener">Public page</a>
+      </div>`;
+    grid.appendChild(card);
+  }
+  const pager = document.getElementById("pager");
+  pager.hidden = pages < 2;
+  if (pages > 1) {
+    pager.innerHTML = `
+      <button class="btn btn-secondary" id="prev" ${page === 0 ? "disabled" : ""}>Previous</button>
+      <span class="mono muted" style="font-size:11px">page ${page + 1} of ${pages}</span>
+      <button class="btn btn-secondary" id="next" ${page >= pages - 1 ? "disabled" : ""}>Next</button>`;
+    document.getElementById("prev").onclick = () => { page--; load(); };
+    document.getElementById("next").onclick = () => { page++; load(); };
+  }
+
+  grid.querySelectorAll("[data-revoke]").forEach(b => b.addEventListener("click", async () => {
+    const ok = await confirmAction({
+      title: "Revoke this share?",
+      body: "The next scan of this copy will show Revoked. Other shares of the "
+          + "same photo keep working. This cannot be undone.",
+      confirmLabel: "Revoke", destructive: true,
+    });
+    if (!ok) return;
+    const done = withSpinner(b, "Revoking");
+    try {
+      await api("/v1/shares/" + b.dataset.revoke, { method: "DELETE" });
+      toast("Revoked");
+      load();
+    } catch (e) { done(); toast(e.message); }
+  }));
+}
+load();
+</script>
+<script src="/static/legal.js"></script>
+<script src="/static/feedback.js"></script>
+<script src="/static/sync.js"></script>
+</body>
+</html>

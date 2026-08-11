@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      The night half of the DayNight theme. This covers the window before any
+      Compose frame exists — the splash and the first draw — so a phone in night
+      mode never flashes white on the way in. Which theme the app itself uses is
+      still the person's own choice on Profile, applied from ThemeState; these
+      values only stop the window underneath from contradicting it.
+    -->
+    <style name="Theme.Identity" parent="android:Theme.Material.NoActionBar">
+        <item name="android:statusBarColor">#17161C</item>
+        <item name="android:navigationBarColor">#17161C</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowBackground">#17161C</item>
+        <item name="android:forceDarkAllowed">false</item>
+    </style>
+
+    <!-- The splash needs its own night value too. Without one the mark was
+         drawn on the system's black rather than the product's own dark ground. -->
+    <style name="Theme.Identity.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">#17161C</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_mark</item>
+        <item name="windowSplashScreenAnimationDuration">700</item>
+        <item name="postSplashScreenTheme">@style/Theme.Identity</item>
+        <item name="android:forceDarkAllowed">false</item>
+    </style>
+</resources>

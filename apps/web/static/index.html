@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Identity — photo-bound identity codes by Patience AI</title>
+<meta name="description" content="Turn a photo into a scannable code that stays recognisably you. Encrypted so we cannot read it, revocable after sharing, and traceable per share.">
+<link rel="canonical" href="https://identity.patienceai.in/">
+<meta name="robots" content="index,follow">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Identity by Patience AI">
+<meta property="og:title" content="Identity — photo-bound identity codes by Patience AI">
+<meta property="og:description" content="Turn a photo into a scannable code that stays recognisably you. Encrypted so we cannot read it, revocable after sharing, and traceable per share.">
+<meta property="og:url" content="https://identity.patienceai.in/">
+<meta property="og:image" content="https://identity.patienceai.in/static/icon-512.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Identity — photo-bound identity codes by Patience AI">
+<meta name="twitter:description" content="Turn a photo into a scannable code that stays recognisably you. Encrypted so we cannot read it, revocable after sharing, and traceable per share.">
+<meta name="twitter:image" content="https://identity.patienceai.in/static/icon-512.png">
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/static/icon-32.png" sizes="32x32" type="image/png">
+<link rel="icon" href="/static/icon-16.png" sizes="16x16" type="image/png">
+<link rel="apple-touch-icon" href="/static/icon-180.png">
+<link rel="manifest" href="/static/site.webmanifest">
+<meta name="theme-color" content="#201e1d">
+<link rel="stylesheet" href="/static/styles.css">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@graph":[
+ {"@type":"SoftwareApplication","name":"Identity","applicationCategory":"SecurityApplication",
+  "operatingSystem":"Web, Android","url":"https://identity.patienceai.in/",
+  "description":"Photo-bound identity codes: a photo that stays recognisable and scans with any standard QR scanner, with an encrypted payload, per-share revocation, and per-share scan logs.",
+  "publisher":{"@id":"https://identity.patienceai.in/#org"}},
+ {"@type":"Organization","@id":"https://identity.patienceai.in/#org","name":"Patience AI",
+  "url":"https://patienceai.in","description":"Patience AI builds privacy-preserving identity and verification tools."}
+]}</script>
+</head>
+<body>
+<nav class="nav">
+  <a class="nav-brand" href="/">Identity</a>
+  <a href="/app/codes.html">Codes</a>
+  <a href="/app/new.html">New code</a>
+  <a href="/app/scan.html">Scan</a>
+  <a href="/app/profile.html">Profile</a>
+  <a class="btn btn-ghost" href="/app/auth.html">Sign in</a>
+</nav>
+
+<div class="wrap cols" style="display:grid;grid-template-columns:minmax(300px,1.05fr) minmax(280px,.95fr);gap:84px;align-items:center;padding-block:84px">
+  <div>
+    <h1 class="rotator" id="headline"
+        style="font-size:clamp(38px,5.4vw,74px);line-height:1.0;letter-spacing:-0.045em;margin-bottom:24px">
+      <span data-on>The photo is the code.</span>
+      <span>Still your face. Now scannable.</span>
+      <span>Share it. Then take it back.</span>
+      <span>One photo. Many codes.</span>
+      <span>Encrypted before it reaches us.</span>
+    </h1>
+    <ul class="lede" style="font-size:17px;max-width:40ch;list-style:none;margin:0;padding:0;display:grid;gap:6px">
+      <li>Your picture, still your picture.</li>
+      <li>Any phone camera reads it.</li>
+      <li>Encrypted before it leaves your device.</li>
+      <li>Switch any copy off, anytime.</li>
+    </ul>
+    <div style="display:flex;gap:12px;margin-top:42px;flex-wrap:wrap;align-items:center">
+      <a class="btn btn-primary" href="/app/new.html">Try the generator</a>
+      <span class="mono muted" style="font-size:11px">5 free codes · no account needed</span>
+    </div>
+  </div>
+  <div>
+    <div class="panel"><canvas id="resolve-hero" width="920" height="920" aria-label="A portrait resolving into its QR module grid and back" style="width:100%;height:auto;display:block"></canvas></div>
+    
+  </div>
+</div>
+
+<hr style="height:2px;border:0;background:rgba(32,30,29,.4);margin:0 42px">
+
+<div class="wrap" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:42px">
+  <div><h4>We can't read it</h4><p style="font-size:14px">Whatever your code opens is locked on your device before it reaches us. We hold the locked version and never the key, so there is nothing for us to read.</p></div>
+  <div><h4>Switch it off anytime</h4><p style="font-size:14px">Change your mind after you have shared it. The next person to scan is simply told it has been turned off.</p></div>
+  <div><h4>Know which copy</h4><p style="font-size:14px">Every copy you share is its own thing with its own scan history, so you can tell exactly which one is getting used.</p></div>
+</div>
+
+
+<hr style="height:2px;border:0;background:rgba(32,30,29,.4);margin:0 42px">
+
+<!-- Why this isn't a QR generator. Every row is something the product actually
+     does. No row claims a first: which parts of this are established prior art
+     is stated in the terms, under "How we describe this product". -->
+<div class="wrap">
+  <h2 style="font-size:clamp(30px,4vw,52px);letter-spacing:-.04em;margin:0 0 12px">
+    This isn't a QR generator.</h2>
+  <p style="max-width:56ch;font-size:16px;margin-bottom:42px">Making a code that
+    looks like a picture is the easy half, and it isn't ours. The difference is
+    what the code is, and what you can still do about it after you've handed it
+    out.</p>
+
+  <div style="overflow-x:auto">
+  <table style="width:100%;border-collapse:collapse;font-size:14px;min-width:640px">
+    <thead>
+      <tr>
+        <th style="text-align:left;padding:12px;width:26%"></th>
+        <th style="text-align:left;padding:12px;border-bottom:2px solid rgba(32,30,29,.4)">
+          An ordinary QR code</th>
+        <th style="text-align:left;padding:12px;border-bottom:2px solid var(--pb-accent)">
+          Identity</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="padding:12px;vertical-align:top;font-weight:700">What it carries</td>
+        <td style="padding:12px;vertical-align:top;border-top:1px solid rgba(32,30,29,.2)">
+          Your actual data, written in the open. Anyone who scans it has it, and
+          anyone who photographs it keeps it.</td>
+        <td style="padding:12px;vertical-align:top;border-top:1px solid rgba(32,30,29,.2)">
+          A meaningless id. What it opens is locked on your device first, and the
+          key rides in the part of a link that browsers never send to a server.</td>
+      </tr>
+      <tr>
+        <td style="padding:12px;vertical-align:top;font-weight:700">After you share it</td>
+        <td style="padding:12px;vertical-align:top;border-top:1px solid rgba(32,30,29,.2)">
+          It works forever. A printed code is a decision you can't take back.</td>
+        <td style="padding:12px;vertical-align:top;border-top:1px solid rgba(32,30,29,.2)">
+          Switch any copy off whenever you like. The next person to scan is told
+          it's off, and told nothing else.</td>
+      </tr>
+      <tr>
+        <td style="padding:12px;vertical-align:top;font-weight:700">If it leaks</td>
+        <td style="padding:12px;vertical-align:top;border-top:1px solid rgba(32,30,29,.2)">
+          One code for everyone, so there's nothing to trace. You can't tell
+          where it got out.</td>
+        <td style="padding:12px;vertical-align:top;border-top:1px solid rgba(32,30,29,.2)">
+          Every copy you share is its own code with its own scan history, so a
+          leak points at the copy it came from.</td>
+      </tr>
+      <tr>
+        <td style="padding:12px;vertical-align:top;font-weight:700">If the picture is edited</td>
+        <td style="padding:12px;vertical-align:top;border-top:1px solid rgba(32,30,29,.2)">
+          Nothing to check against. A swapped face still scans the same.</td>
+        <td style="padding:12px;vertical-align:top;border-top:1px solid rgba(32,30,29,.2)">
+          Check a picture later and we tell you whether it's the same one the code
+          was made for, a harmless re-save, or changed — and where.</td>
+      </tr>
+      <tr>
+        <td style="padding:12px;vertical-align:top;font-weight:700">Does it still look like you</td>
+        <td style="padding:12px;vertical-align:top;border-top:1px solid rgba(32,30,29,.2)">
+          No. It's a grid of squares, or a picture with a code sitting on top of
+          it.</td>
+        <td style="padding:12px;vertical-align:top;border-top:1px solid rgba(32,30,29,.2)">
+          The picture is the code, across the whole image. A face is given extra
+          room, and we show you a measured score rather than asking you to
+          squint.</td>
+      </tr>
+      <tr>
+        <td style="padding:12px;vertical-align:top;font-weight:700">Before you're shown it</td>
+        <td style="padding:12px;vertical-align:top;border-top:1px solid rgba(32,30,29,.2)">
+          Nothing is checked. You find out it won't scan when someone tries.</td>
+        <td style="padding:12px;vertical-align:top;border-top:1px solid rgba(32,30,29,.2)">
+          Every code is scanned by real decoders — flat, re-compressed, tilted and
+          shrunk — before it reaches you, and you're shown the number.</td>
+      </tr>
+      <tr>
+        <td style="padding:12px;vertical-align:top;font-weight:700">Reader needed</td>
+        <td style="padding:12px;vertical-align:top;border-top:1px solid rgba(32,30,29,.2)">
+          Any phone camera.</td>
+        <td style="padding:12px;vertical-align:top;border-top:1px solid rgba(32,30,29,.2)">
+          Any standard scanner — no app of ours required. Verified against two
+          independent open-source decoders; testing on phone cameras is still in
+          progress and we'll say so until it's done.</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+</div>
+
+<div style="background:var(--pb-accent);padding:84px 42px">
+  <div style="max-width:1280px;margin:0 auto">
+    <h2 style="font-size:clamp(34px,4.4vw,60px);letter-spacing:-0.045em;margin-bottom:12px">Off means off.</h2>
+    <p style="max-width:52ch;font-size:16px;margin-bottom:0">The button that says Revoke gives you a code that says Revoked. No grace period, no cached copies, no fine print.</p>
+  </div>
+</div>
+
+<script src="/static/app.js"></script>
+<script src="/static/consent.js"></script>
+<script src="/static/chrome.js"></script>
+<script>
+  const hero = new Resolve(document.getElementById("resolve-hero"), "/static/assets/hero.jpg");
+  hero.ambient();
+
+  /* Rotating statement. Pauses when the tab is hidden and when the visitor
+     prefers reduced motion it still rotates, just without the slide. */
+  (function rotate() {
+    const lines = [...document.querySelectorAll("#headline > span")];
+    if (lines.length < 2) return;
+    let i = 0;
+    setInterval(() => {
+      if (document.hidden) return;
+      lines[i].removeAttribute("data-on");
+      i = (i + 1) % lines.length;
+      lines[i].setAttribute("data-on", "");
+    }, 3600);
+  })();
+</script>
+<script src="/static/legal.js"></script>
+<script src="/static/feedback.js"></script>
+<script src="/static/download.js"></script>
+<script src="/static/sync.js"></script>
+</body>
+</html>

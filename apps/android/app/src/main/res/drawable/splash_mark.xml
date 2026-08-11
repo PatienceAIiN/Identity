@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The three finder squares plus the live dot: the product's own geometry.
+     Each square fades and scales in turn, then the dot lands. -->
+<animated-vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt">
+    <aapt:attr name="android:drawable">
+        <vector android:width="108dp" android:height="108dp"
+            android:viewportWidth="108" android:viewportHeight="108">
+            <group android:name="tl" android:pivotX="38" android:pivotY="38">
+                <path android:name="p_tl" android:fillColor="#FF48B0"
+                    android:pathData="M28,28h22v22h-22z"/>
+                <path android:fillColor="#FFFFFF" android:pathData="M33,33h12v12h-12z"/>
+                <path android:name="p_tl2" android:fillColor="#FF48B0"
+                    android:pathData="M36,36h6v6h-6z"/>
+            </group>
+            <group android:name="tr" android:pivotX="70" android:pivotY="38">
+                <path android:name="p_tr" android:fillColor="#FF48B0"
+                    android:pathData="M58,28h22v22h-22z"/>
+                <path android:fillColor="#FFFFFF" android:pathData="M63,33h12v12h-12z"/>
+                <path android:fillColor="#FF48B0" android:pathData="M66,36h6v6h-6z"/>
+            </group>
+            <group android:name="bl" android:pivotX="38" android:pivotY="70">
+                <path android:name="p_bl" android:fillColor="#FF48B0"
+                    android:pathData="M28,58h22v22h-22z"/>
+                <path android:fillColor="#FFFFFF" android:pathData="M33,63h12v12h-12z"/>
+                <path android:fillColor="#FF48B0" android:pathData="M36,66h6v6h-6z"/>
+            </group>
+            <group android:name="dot" android:pivotX="70" android:pivotY="70">
+                <path android:name="p_dot" android:fillColor="#00A95C"
+                    android:pathData="M64,64h12v12h-12z"/>
+            </group>
+        </vector>
+    </aapt:attr>
+
+    <target android:name="tl">
+        <aapt:attr name="android:animation">
+            <objectAnimator android:propertyName="scaleX" android:valueFrom="0.4"
+                android:valueTo="1" android:duration="260"
+                android:interpolator="@android:interpolator/overshoot"/>
+        </aapt:attr>
+    </target>
+    <target android:name="tr">
+        <aapt:attr name="android:animation">
+            <objectAnimator android:propertyName="scaleY" android:valueFrom="0.4"
+                android:valueTo="1" android:duration="300" android:startOffset="90"
+                android:interpolator="@android:interpolator/overshoot"/>
+        </aapt:attr>
+    </target>
+    <target android:name="bl">
+        <aapt:attr name="android:animation">
+            <objectAnimator android:propertyName="scaleX" android:valueFrom="0.4"
+                android:valueTo="1" android:duration="300" android:startOffset="170"
+                android:interpolator="@android:interpolator/overshoot"/>
+        </aapt:attr>
+    </target>
+    <target android:name="dot">
+        <aapt:attr name="android:animation">
+            <set>
+                <objectAnimator android:propertyName="scaleX" android:valueFrom="0"
+                    android:valueTo="1" android:duration="240" android:startOffset="320"
+                    android:interpolator="@android:interpolator/overshoot"/>
+                <objectAnimator android:propertyName="scaleY" android:valueFrom="0"
+                    android:valueTo="1" android:duration="240" android:startOffset="320"
+                    android:interpolator="@android:interpolator/overshoot"/>
+            </set>
+        </aapt:attr>
+    </target>
+</animated-vector>

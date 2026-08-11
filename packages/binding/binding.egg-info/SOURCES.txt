@@ -1,0 +1,15 @@
+pyproject.toml
+binding/__init__.py
+binding/canonical.py
+binding/fingerprint.py
+binding/keys.py
+binding/record.py
+binding/registry.py
+binding/verify.py
+binding.egg-info/PKG-INFO
+binding.egg-info/SOURCES.txt
+binding.egg-info/dependency_links.txt
+binding.egg-info/requires.txt
+binding.egg-info/top_level.txt
+tests/test_record.py
+tests/test_verify.py

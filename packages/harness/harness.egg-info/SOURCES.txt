@@ -1,0 +1,16 @@
+pyproject.toml
+harness/__init__.py
+harness/analyze.py
+harness/decode.py
+harness/degrade.py
+harness/faces.py
+harness/fuse.py
+harness/metrics.py
+harness/qrspec.py
+harness/sweep.py
+harness.egg-info/PKG-INFO
+harness.egg-info/SOURCES.txt
+harness.egg-info/dependency_links.txt
+harness.egg-info/entry_points.txt
+harness.egg-info/requires.txt
+harness.egg-info/top_level.txt

@@ -1,0 +1,31 @@
+:root {
+  --pb-bg: #ffffff;
+  --pb-surface: #f4f3f3;
+  --pb-ink: #201e1d;
+  --pb-inkInverse: #f3f2f2;
+  --pb-accent: #FF48B0;
+  --pb-accentHover: #FF6FBF;
+  --pb-accentActive: #E02092;
+  --pb-blue: #1F3FB5;
+  --pb-live: #00A95C;
+  --pb-liveInk: #00713E;
+  --pb-liveBg: rgba(0,169,92,.14);
+  --pb-revoked: #FF6C2F;
+  --pb-revokedInk: #B23C0F;
+  --pb-revokedBg: rgba(255,108,47,.14);
+  --pb-expiring: #FFB020;
+  --pb-expiringInk: #8A5A00;
+  --pb-expiringBg: rgba(255,176,32,.18);
+  --pb-muted: #605d5d;
+  --pb-darkBg: #242121;
+  --pb-darkCard: #2f2c2c;
+  --pb-space-xs: 6px;
+  --pb-space-sm: 12px;
+  --pb-space-md: 24px;
+  --pb-space-lg: 42px;
+  --pb-space-xl: 84px;
+  --pb-font-body: 'Archivo', system-ui, sans-serif;
+  --pb-font-mono: 'Martian Mono', ui-monospace, monospace;
+  --pb-radius: 0px;
+  --pb-rule: 2px;
+}

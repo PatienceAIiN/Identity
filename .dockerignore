@@ -1,0 +1,13 @@
+.venv/
+.git/
+artifacts/
+run/
+dist/
+packages/harness/
+apps/android/
+node_modules/
+**/__pycache__/
+**/*.pyc
+**/build/
+*.apk
+*.jks

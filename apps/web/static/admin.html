@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin — Identity</title>
+<meta name="robots" content="noindex,nofollow,noarchive">
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+<div class="wrap" style="max-width:1080px">
+
+  <div id="gate">
+    <h3 style="margin-bottom:8px">Admin</h3>
+    <p class="mono muted" style="font-size:11px;margin-bottom:24px">operator access · every action here is on real accounts</p>
+    <div class="field" style="max-width:320px;margin-bottom:12px">
+      <label for="pw">Password</label>
+      <input id="pw" type="password" class="input" autocomplete="current-password">
+    </div>
+    <p class="err" id="gate-err" hidden style="margin-bottom:12px"></p>
+    <button class="btn btn-primary" id="signin">Sign in</button>
+  </div>
+
+  <div id="panel" hidden>
+    <div style="display:flex;align-items:baseline;gap:24px;margin-bottom:24px;flex-wrap:wrap">
+      <h3 style="margin:0">Admin</h3>
+      <button class="btn btn-ghost" data-tab="users" id="tab-users">Users</button>
+      <button class="btn btn-ghost" data-tab="devs" id="tab-devs">Developers</button>
+      <button class="btn btn-secondary" id="signout" style="margin-left:auto">Sign out</button>
+    </div>
+
+    <section id="view-users">
+      <div style="display:flex;gap:12px;align-items:flex-end;margin-bottom:24px">
+        <div class="field" style="flex:1;max-width:320px">
+          <label for="q">Search by email</label>
+          <input id="q" class="input" placeholder="name@example.org">
+        </div>
+        <button class="btn btn-secondary" id="search">Search</button>
+      </div>
+      <div id="users"></div>
+      <div id="pager" style="display:flex;gap:12px;align-items:center;justify-content:center;margin-top:24px"></div>
+    </section>
+
+    <section id="view-devs" hidden>
+      <div id="devs"></div>
+    </section>
+
+    <div id="detail" hidden style="border:2px solid var(--pb-blue);padding:24px;margin-top:24px"></div>
+  </div>
+</div>
+<script src="/static/app.js"></script>
+<script src="/static/consent.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+let page = 0, query = "";
+
+async function boot() {
+  try { await api("/v1/admin/session"); show(); }
+  catch (_) { $("gate").hidden = false; }
+}
+
+function show() {
+  $("gate").hidden = true;
+  $("panel").hidden = false;
+  loadUsers();
+}
+
+$("signin").addEventListener("click", async () => {
+  $("gate-err").hidden = true;
+  const done = withSpinner($("signin"), "Signing in");
+  try {
+    await api("/v1/admin/login", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: $("pw").value }),
+    });
+    $("pw").value = "";
+    show();
+  } catch (e) {
+    $("gate-err").textContent = e.message;
+    $("gate-err").hidden = false;
+  } finally { done(); }
+});
+
+$("signout").addEventListener("click", async () => {
+  await api("/v1/admin/logout", { method: "POST" });
+  location.reload();
+});
+
+$("tab-users").addEventListener("click", () => {
+  $("view-users").hidden = false; $("view-devs").hidden = true; $("detail").hidden = true;
+});
+$("tab-devs").addEventListener("click", () => {
+  $("view-users").hidden = true; $("view-devs").hidden = false; $("detail").hidden = true;
+  loadDevs();
+});
+$("search").addEventListener("click", () => { query = $("q").value.trim(); page = 0; loadUsers(); });
+
+async function loadUsers() {
+  const r = await api(`/v1/admin/users?q=${encodeURIComponent(query)}&page=${page}`);
+  $("users").innerHTML = r.users.map(u => `
+    <div style="border:1px solid rgba(32,30,29,.4);padding:16px;margin-bottom:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+      <div style="flex:1;min-width:220px">
+        <p style="font-size:14px;font-weight:700;margin:0 0 4px">${u.name || "(no name)"}</p>
+        <p class="mono muted" style="font-size:10.5px;margin:0;overflow-wrap:anywhere">${u.email} ·
+          ${u.codes} codes · ${u.api_keys} keys ·
+          ${u.google_linked ? "google linked" : "password only"} ·
+          joined ${u.created_at.slice(0,10)}</p>
+      </div>
+      <button class="btn btn-ghost" data-open="${u.user_id}">Open</button>
+      <button class="btn btn-secondary" data-del="${u.user_id}" data-email="${u.email}"
+              style="border-color:var(--pb-revoked);color:var(--pb-revokedInk)">Delete</button>
+    </div>`).join("") || `<p class="mono muted" style="font-size:11px">no users match</p>`;
+
+  const pages = Math.max(1, Math.ceil(r.total / r.per_page));
+  $("pager").innerHTML = pages > 1 ? `
+    <button class="btn btn-secondary" id="prev" ${page === 0 ? "disabled" : ""}>Previous</button>
+    <span class="mono muted" style="font-size:11px">page ${page + 1} of ${pages} · ${r.total} users</span>
+    <button class="btn btn-secondary" id="next" ${page >= pages - 1 ? "disabled" : ""}>Next</button>` : "";
+  if (pages > 1) {
+    $("prev").onclick = () => { page--; loadUsers(); };
+    $("next").onclick = () => { page++; loadUsers(); };
+  }
+
+  $("users").querySelectorAll("[data-open]").forEach(b =>
+    b.addEventListener("click", () => openUser(b.dataset.open)));
+  $("users").querySelectorAll("[data-del]").forEach(b =>
+    b.addEventListener("click", async () => {
+      const ok = await confirmAction({
+        title: "Delete this account?",
+        body: `Everything belonging to ${b.dataset.email} is removed and cannot be `
+            + `recovered. Codes already shared will report that they have been `
+            + `switched off.`,
+        confirmLabel: "Delete", destructive: true, requireText: "DELETE",
+      });
+      if (!ok) return;
+      try {
+        await api(`/v1/admin/users/${b.dataset.del}?confirm=DELETE`, { method: "DELETE" });
+        toast("Account deleted");
+        loadUsers();
+      } catch (e) { toast(e.message); }
+    }));
+}
+
+async function openUser(id) {
+  const u = await api(`/v1/admin/users/${id}`);
+  $("detail").hidden = false;
+  $("detail").innerHTML = `
+    <p class="kicker">account</p>
+    <p style="font-size:16px;font-weight:700;margin:0 0 4px">${u.name || "(no name)"}</p>
+    <p class="mono muted" style="font-size:11px;margin:0 0 16px">${u.email} · ${u.user_id}</p>
+    <p class="mono muted" style="font-size:11px;margin:0 0 16px">what their codes open is
+      encrypted and the keys never reach this server — there is nothing here to read</p>
+    <p class="kicker">codes</p>
+    <div class="mono" style="font-size:11px;line-height:1.9;margin-bottom:16px">
+      ${u.codes.map(c => `<div>${c.opaque_resolution_id} · ${c.label || "unlabelled"} · ${c.state} · ${c.scan_count} scans</div>`).join("") || "<div>none</div>"}
+    </div>
+    <p class="kicker">keys</p>
+    <div class="mono" style="font-size:11px;line-height:1.9">
+      ${u.keys.map(k => `<div>${k.key_id} · ${k.call_count} calls${k.revoked ? " · revoked" : ""}</div>`).join("") || "<div>none</div>"}
+    </div>`;
+}
+
+async function loadDevs() {
+  const r = await api("/v1/admin/developers");
+  $("devs").innerHTML = r.developers.map(d => `
+    <div style="border:1px solid rgba(32,30,29,.4);padding:16px;margin-bottom:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+      <div style="flex:1;min-width:240px">
+        <p class="mono" style="font-size:12px;font-weight:700;margin:0 0 4px;overflow-wrap:anywhere">${d.key_id}</p>
+        <p class="mono muted" style="font-size:10.5px;margin:0;overflow-wrap:anywhere">${d.email} ·
+          ${d.name || "unnamed"} · ${d.scopes.join(" ")} ·
+          ${d.calls_total} calls total · ${d.calls_today} today${d.rejected_today ? " · " + d.rejected_today + " refused today" : ""}${d.revoked ? " · revoked" : ""}</p>
+      </div>
+      ${d.revoked ? "" : `<button class="btn btn-secondary" data-kill="${d.key_id}">Revoke key</button>`}
+    </div>`).join("") || `<p class="mono muted" style="font-size:11px">no keys have been created</p>`;
+
+  $("devs").querySelectorAll("[data-kill]").forEach(b =>
+    b.addEventListener("click", async () => {
+      const ok = await confirmAction({
+        title: "Revoke this key?",
+        body: "The integration using it stops working immediately.",
+        confirmLabel: "Revoke", destructive: true,
+      });
+      if (!ok) return;
+      await api(`/v1/admin/keys/${b.dataset.kill}`, { method: "DELETE" });
+      toast("Key revoked");
+      loadDevs();
+    }));
+}
+
+boot();
+</script>
+</body>
+</html>

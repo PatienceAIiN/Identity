@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Verify a photo — Identity by Patience AI</title>
+<meta name="description" content="Check whether a photo still matches the code it was issued for: exact, consistent, modified, or inconclusive.">
+<link rel="canonical" href="https://identity.patienceai.in/app/scan.html">
+<meta name="robots" content="noindex,follow">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Identity by Patience AI">
+<meta property="og:title" content="Verify a photo — Identity by Patience AI">
+<meta property="og:description" content="Check whether a photo still matches the code it was issued for: exact, consistent, modified, or inconclusive.">
+<meta property="og:url" content="https://identity.patienceai.in/app/scan.html">
+<meta property="og:image" content="https://identity.patienceai.in/static/icon-512.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Verify a photo — Identity by Patience AI">
+<meta name="twitter:description" content="Check whether a photo still matches the code it was issued for: exact, consistent, modified, or inconclusive.">
+<meta name="twitter:image" content="https://identity.patienceai.in/static/icon-512.png">
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/static/icon-32.png" sizes="32x32" type="image/png">
+<link rel="icon" href="/static/icon-16.png" sizes="16x16" type="image/png">
+<link rel="apple-touch-icon" href="/static/icon-180.png">
+<link rel="manifest" href="/static/site.webmanifest">
+<meta name="theme-color" content="#201e1d">
+<link rel="stylesheet" href="/static/styles.css">
+<style id="guard-preload">html{visibility:hidden}html.public{visibility:visible}</style>
+</head>
+<body data-requires-auth="1">
+<nav class="nav">
+  <a class="nav-brand" href="/">Identity</a>
+  <a href="/app/codes.html">Codes</a>
+  <a href="/app/new.html">New code</a>
+  <a href="/app/scan.html" aria-current="page">Scan</a>
+  <a href="/app/profile.html">Profile</a>
+</nav>
+<div class="wrap cols" style="display:grid;grid-template-columns:minmax(280px,420px) minmax(300px,1fr);gap:42px;align-items:start">
+  <div>
+    <h3 style="margin-bottom:12px">Verify an image</h3>
+    <p style="font-size:15px;max-width:40ch;margin-bottom:24px">Drop a photo-bound code here and paste its share id (or full link). We check that the image still matches what the code was issued for — recompression passes, edits are flagged.</p>
+    <div class="panel" style="display:flex;flex-direction:column;gap:12px;align-items:flex-start">
+      <button class="btn btn-primary" id="choose">Choose an image</button>
+      <input type="file" id="file" accept="image/*" style="display:none">
+      <div class="field" style="width:100%"><label for="sid">Share id or link</label>
+        <input id="sid" class="input mono" style="font-size:12px" placeholder="hK4mZq9TvW or https://…/r/hK4mZq9TvW#…"></div>
+      <button class="btn btn-secondary" id="verify">Verify photo</button>
+    </div>
+    <p class="mono muted" style="font-size:11px;margin-top:24px">resolve credential → check signature → exact hash → perceptual evidence</p>
+  </div>
+  <div>
+    <div id="idle" style="border:2px dashed rgba(32,30,29,.4);padding:84px 24px;background:var(--pb-surface)">
+      <p class="mono muted" style="font-size:11px;margin:0">no image yet</p>
+      <p style="font-size:15px;margin:12px 0 0;max-width:36ch">The verdict distinguishes exact copies, harmless recompression, and content changes — a resolving code alone is never “authentic”.</p>
+    </div>
+    <div id="out" hidden></div>
+  </div>
+</div>
+<script src="/static/app.js"></script>
+<script src="/static/consent.js"></script>
+<script src="/static/chrome.js"></script>
+<script src="/static/download.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+let file = null;
+requireAuth();
+$("choose").addEventListener("click", () => $("file").click());
+$("file").addEventListener("change", e => {
+  file = e.target.files[0];
+  if (file) { $("choose").textContent = file.name; }
+});
+const VERDICTS = {
+  AUTHENTIC_EXACT:   { cls: "",         tag: "tag-live",    label: "Exact match",      note: "Byte-identical to the registered image." },
+  AUTHENTIC_DERIVED: { cls: "",         tag: "tag-live",    label: "Consistent",       note: "Not byte-identical, but within tested benign-transformation tolerance. This does not prove it is the original file." },
+  CONTENT_MODIFIED:  { cls: "revoked",  tag: "tag-revoked", label: "Content modified", note: "The image does not match what this code was issued for." },
+  INSUFFICIENT_EVIDENCE: { cls: "expiring", tag: "tag-expiring", label: "Inconclusive", note: "Between tested tolerance and the modification threshold — no determination." },
+  REVOKED:           { cls: "revoked",  tag: "tag-revoked", label: "Revoked",          note: "The owner turned this code off. Nothing was decrypted." },
+  EXPIRED:           { cls: "expiring", tag: "tag-expiring", label: "Expired",         note: "This code reached its expiry." },
+  CANNOT_VERIFY_PHOTO: { cls: "revoked", tag: "tag-revoked", label: "Unreadable image", note: "That file could not be decoded as an image." },
+};
+$("verify").addEventListener("click", async () => {
+  if (!file) return toast("Choose an image first");
+  let sid = $("sid").value.trim();
+  const m = sid.match(/\/r\/([^#/?]+)/); if (m) sid = m[1];
+  if (!sid) return toast("Paste the share id or link");
+  const fd = new FormData();
+  fd.append("photo", file);
+  fd.append("opaque_resolution_id", sid);
+  const done = withSpinner($("verify"), "Checking");
+  let r;
+  try { r = await api("/v1/verify-photo", { method: "POST", body: fd }); }
+  catch (e) { done(); return toast(e.message); }
+  done();
+  const v = VERDICTS[r.status] || VERDICTS.INSUFFICIENT_EVIDENCE;
+  const ev = r.evidence || {};
+  $("idle").hidden = true;
+  $("out").hidden = false;
+  $("out").innerHTML = `
+    <div class="result ${v.cls}">
+      <span class="tag ${v.tag}">${v.label}</span>
+      <h4 style="margin:24px 0 12px">${r.status}</h4>
+      <p style="font-size:14px">${v.note}</p>
+      <div class="codebox">${r.reason || ""}
+${ev.global_distance !== undefined ? `global distance ${ev.global_distance} · ${(ev.changed_regions || []).length} region(s) flagged` : ""}</div>
+    </div>`;
+});
+</script>
+<script src="/static/legal.js"></script>
+<script src="/static/feedback.js"></script>
+<script src="/static/sync.js"></script>
+</body>
+</html>

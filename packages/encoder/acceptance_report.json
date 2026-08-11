@@ -1,0 +1,303 @@
+{
+  "payload_shape": "v7 zero-knowledge URL (256-bit key, 64-bit id)",
+  "n_photos": 38,
+  "n_encoded_and_validated": 33,
+  "n_failed": 5,
+  "decode_rate_mean": 0.9727,
+  "decode_rate_min": 0.9,
+  "face_ssim_mean": 0.9231,
+  "face_ssim_min": 0.7688,
+  "n_face_ssim_ge_0.90": 18,
+  "n_escalated": 2,
+  "rows": [
+    {
+      "photo": "A__P__J__Abdul_Kalam",
+      "ok": true,
+      "decode_rate": 1.0,
+      "face_ssim": 0.8711,
+      "placement": "br6",
+      "escalations": 0
+    },
+    {
+      "photo": "Aldrin_Apollo_11",
+      "ok": false,
+      "error": "no face detected in photo"
+    },
+    {
+      "photo": "Amy_Coney_Barrett_official_portrait",
+      "ok": true,
+      "decode_rate": 0.9,
+      "face_ssim": 0.8532,
+      "placement": "bl6",
+      "escalations": 0
+    },
+    {
+      "photo": "Barack_Obama_family_portrait_2011",
+      "ok": true,
+      "decode_rate": 0.9,
+      "face_ssim": 1.0,
+      "placement": "tl6",
+      "escalations": 0
+    },
+    {
+      "photo": "Buzz_Aldrin",
+      "ok": true,
+      "decode_rate": 1.0,
+      "face_ssim": 1.0,
+      "placement": "bl6",
+      "escalations": 0
+    },
+    {
+      "photo": "Christa_McAuliffe",
+      "ok": true,
+      "decode_rate": 1.0,
+      "face_ssim": 0.7981,
+      "placement": "tr6",
+      "escalations": 0
+    },
+    {
+      "photo": "Clarence_Thomas_official_SCOTUS_portrait",
+      "ok": true,
+      "decode_rate": 1.0,
+      "face_ssim": 1.0,
+      "placement": "bl6",
+      "escalations": 0
+    },
+    {
+      "photo": "Colin_Powell_official_Secretary_of_State_photo",
+      "ok": true,
+      "decode_rate": 1.0,
+      "face_ssim": 0.8243,
+      "placement": "bl6",
+      "escalations": 0
+    },
+    {
+      "photo": "Condoleezza_Rice",
+      "ok": true,
+      "decode_rate": 0.9,
+      "face_ssim": 0.8153,
+      "placement": "br6",
+      "escalations": 0
+    },
+    {
+      "photo": "Donald_Trump_official_portrait",
+      "ok": true,
+      "decode_rate": 1.0,
+      "face_ssim": 0.8125,
+      "placement": "br6",
+      "escalations": 0
+    },
+    {
+      "photo": "Ellen_Ochoa",
+      "ok": true,
+      "decode_rate": 1.0,
+      "face_ssim": 1.0,
+      "placement": "bl6",
+      "escalations": 0
+    },
+    {
+      "photo": "Ellison_Onizuka",
+      "ok": true,
+      "decode_rate": 1.0,
+      "face_ssim": 0.8437,
+      "placement": "br6",
+      "escalations": 0
+    },
+    {
+      "photo": "Fred_Haise",
+      "ok": true,
+      "decode_rate": 0.9,
+      "face_ssim": 1.0,
+      "placement": "bl6",
+      "escalations": 0
+    },
+    {
+      "photo": "George_W__Bush",
+      "ok": true,
+      "decode_rate": 0.9,
+      "face_ssim": 1.0,
+      "placement": "bl6",
+      "escalations": 0
+    },
+    {
+      "photo": "Grand_Canyon_view_from_Pima_Point_2010",
+      "ok": false,
+      "error": "no face detected in photo"
+    },
+    {
+      "photo": "Guion_Bluford",
+      "ok": true,
+      "decode_rate": 1.0,
+      "face_ssim": 0.9556,
+      "placement": "bl6",
+      "escalations": 0
+    },
+    {
+      "photo": "Hillary_Clinton_official_Secretary_of_State_portrait_crop",
+      "ok": true,
+      "decode_rate": 1.0,
+      "face_ssim": 0.838,
+      "placement": "br6",
+      "escalations": 0
+    },
+    {
+      "photo": "Hubble_ultra_deep_field",
+      "ok": false,
+      "error": "no face detected in photo"
+    },
+    {
+      "photo": "Joan_Higginbotham",
+      "ok": true,
+      "decode_rate": 1.0,
+      "face_ssim": 1.0,
+      "placement": "bl6",
+      "escalations": 0
+    },
+    {
+      "photo": "Joe_Biden_presidential_portrait",
+      "ok": true,
+      "decode_rate": 0.9,
+      "face_ssim": 0.9259,
+      "placement": "br6",
+      "escalations": 0
+    },
+    {
+      "photo": "John_Glenn_Low_Res",
+      "ok": true,
+      "decode_rate": 0.9,
+      "face_ssim": 0.8881,
+      "placement": "bl6",
+      "escalations": 0
+    },
+    {
+      "photo": "Kalpana_Chawla_NASA_photo_portrait_in_orange_suit",
+      "ok": true,
+      "decode_rate": 0.9,
+      "face_ssim": 0.8875,
+      "placement": "br6",
+      "escalations": 2
+    },
+    {
+      "photo": "Kamala_Harris_Vice_Presidential_Portrait",
+      "ok": true,
+      "decode_rate": 1.0,
+      "face_ssim": 0.8736,
+      "placement": "bl6",
+      "escalations": 0
+    },
+    {
+      "photo": "Kamala_Harris_official_photo_(cropped2)",
+      "ok": true,
+      "decode_rate": 1.0,
+      "face_ssim": 0.9266,
+      "placement": "br6",
+      "escalations": 0
+    },
+    {
+      "photo": "Mae_Carol_Jemison",
+      "ok": true,
+      "decode_rate": 1.0,
+      "face_ssim": 1.0,
+      "placement": "bl6",
+      "escalations": 0
+    },
+    {
+      "photo": "Michelle_Obama_official_portrait_headshot",
+      "ok": true,
+      "decode_rate": 1.0,
+      "face_ssim": 0.7986,
+      "placement": "br6",
+      "escalations": 0
+    },
+    {
+      "photo": "Mount_Rushmore_detail_view_100MP",
+      "ok": true,
+      "decode_rate": 1.0,
+      "face_ssim": 1.0,
+      "placement": "tr6",
+      "escalations": 2
+    },
+    {
+      "photo": "Neil_Armstrong_pose",
+      "ok": true,
+      "decode_rate": 0.9,
+      "face_ssim": 1.0,
+      "placement": "bl6",
+      "escalations": 0
+    },
+    {
+      "photo": "Official_portrait_of_Barack_Obama",
+      "ok": true,
+      "decode_rate": 1.0,
+      "face_ssim": 0.889,
+      "placement": "bl6",
+      "escalations": 0
+    },
+    {
+      "photo": "Raja_Chari_official_portrait",
+      "ok": true,
+      "decode_rate": 1.0,
+      "face_ssim": 1.0,
+      "placement": "bl6",
+      "escalations": 0
+    },
+    {
+      "photo": "Ronald_McNair",
+      "ok": true,
+      "decode_rate": 1.0,
+      "face_ssim": 0.7688,
+      "placement": "br6",
+      "escalations": 0
+    },
+    {
+      "photo": "Sally_Ride_1984",
+      "ok": true,
+      "decode_rate": 1.0,
+      "face_ssim": 0.8933,
+      "placement": "bl6",
+      "escalations": 0
+    },
+    {
+      "photo": "Samuel_Alito_official_photo",
+      "ok": true,
+      "decode_rate": 1.0,
+      "face_ssim": 1.0,
+      "placement": "bl6",
+      "escalations": 0
+    },
+    {
+      "photo": "Sidney_Gutierrez",
+      "ok": true,
+      "decode_rate": 1.0,
+      "face_ssim": 1.0,
+      "placement": "bl6",
+      "escalations": 0
+    },
+    {
+      "photo": "Sonia_Sotomayor_in_SCOTUS_robe",
+      "ok": true,
+      "decode_rate": 1.0,
+      "face_ssim": 1.0,
+      "placement": "bl6",
+      "escalations": 0
+    },
+    {
+      "photo": "Sunita_Williams",
+      "ok": true,
+      "decode_rate": 1.0,
+      "face_ssim": 1.0,
+      "placement": "br6",
+      "escalations": 0
+    },
+    {
+      "photo": "The_Earth_seen_from_Apollo_17",
+      "ok": false,
+      "error": "no face detected in photo"
+    },
+    {
+      "photo": "White_House_north_and_south_sides",
+      "ok": false,
+      "error": "no face detected in photo"
+    }
+  ]
+}

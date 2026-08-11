@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Profile — Identity by Patience AI</title>
+<meta name="description" content="Your Identity account: name, password, legal documents, sign out, and account deletion.">
+<meta name="robots" content="noindex,nofollow">
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/static/icon-32.png" sizes="32x32" type="image/png">
+<link rel="icon" href="/static/icon-16.png" sizes="16x16" type="image/png">
+<link rel="apple-touch-icon" href="/static/icon-180.png">
+<link rel="manifest" href="/static/site.webmanifest">
+<meta name="theme-color" content="#201e1d">
+<link rel="stylesheet" href="/static/styles.css">
+<style id="guard-preload">html{visibility:hidden}html.public{visibility:visible}</style>
+</head>
+<body data-requires-auth="1">
+<nav class="nav">
+  <a class="nav-brand" href="/" style="text-decoration:none;color:inherit">Identity</a>
+  <a href="/app/codes.html">Codes</a>
+  <a href="/app/new.html">New code</a>
+  <a href="/app/scan.html">Scan</a>
+  <a href="/app/profile.html" aria-current="page">Profile</a>
+</nav>
+
+<div class="wrap" style="max-width:680px">
+  <h3 style="margin-bottom:6px">Profile</h3>
+  <p class="mono muted" id="meta" style="font-size:11px;margin-bottom:42px"></p>
+
+  <!-- account -->
+  <section style="margin-bottom:42px">
+    <p class="kicker">account</p>
+    <div class="field" style="margin-bottom:12px">
+      <label for="name">Name — what appears on your codes</label>
+      <input id="name" class="input">
+    </div>
+    <div class="field" style="margin-bottom:12px">
+      <label for="email">Email</label>
+      <input id="email" class="input" disabled>
+      <p class="mono muted" style="font-size:10.5px;margin:5px 0 0">verified · changing your email isn't supported yet</p>
+    </div>
+    <button class="btn btn-primary" id="save">Save</button>
+    <span class="mono" id="saved" style="font-size:11px;color:var(--pb-liveInk);margin-left:12px"></span>
+  </section>
+
+  <hr style="height:2px;border:0;background:rgba(32,30,29,.4);margin:0 0 42px">
+
+  <!-- card: the page a code opens when you ask for a link -->
+  <section id="card-section" style="margin-bottom:42px">
+    <p class="kicker">your card page</p>
+    <p style="font-size:14px;max-width:52ch;margin-bottom:12px">This is what a code
+      opens when you choose “Use my card link”. Anyone who scans that code can read
+      it, so fill in only what you're happy to hand out. Leave a field empty and it
+      isn't shown.</p>
+    <div class="field" style="margin-bottom:12px">
+      <label for="card-name">Name on the card</label>
+      <input id="card-name" class="input" placeholder="Ama Osei">
+    </div>
+    <div class="field" style="margin-bottom:12px">
+      <label for="card-headline">One line about you</label>
+      <input id="card-headline" class="input" placeholder="Cardiology">
+    </div>
+    <div class="field" style="margin-bottom:12px">
+      <label for="card-email">Email to show</label>
+      <input id="card-email" class="input" placeholder="leave empty to hide">
+    </div>
+    <div class="field" style="margin-bottom:12px">
+      <label for="card-phone">Phone to show</label>
+      <input id="card-phone" class="input" placeholder="leave empty to hide">
+    </div>
+    <div class="field" style="margin-bottom:12px">
+      <label for="card-website">Website</label>
+      <input id="card-website" class="input" placeholder="leave empty to hide">
+    </div>
+    <button class="btn btn-primary" id="card-save">Save card</button>
+    <a class="btn btn-ghost" id="card-view" href="#" target="_blank" rel="noopener"
+       style="margin-left:12px">Open my card</a>
+    <span class="mono" id="card-saved" style="font-size:11px;color:var(--pb-liveInk);margin-left:12px"></span>
+  </section>
+
+  <hr style="height:2px;border:0;background:rgba(32,30,29,.4);margin:0 0 42px">
+
+  <!-- password -->
+  <section id="pw-section" style="margin-bottom:42px">
+    <p class="kicker">password</p>
+    <div class="field" style="margin-bottom:12px">
+      <label for="cur">Current password</label>
+      <div class="pw">
+        <input id="cur" type="password" class="input" autocomplete="current-password">
+        <button type="button" class="pw-eye" data-eye="cur" aria-label="Show password" aria-pressed="false">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="field" style="margin-bottom:12px">
+      <label for="new">New password</label>
+      <div class="pw">
+        <input id="new" type="password" class="input" placeholder="at least 12 characters" autocomplete="new-password">
+        <button type="button" class="pw-eye" data-eye="new" aria-label="Show password" aria-pressed="false">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+    </div>
+    <p class="err" id="pw-err" hidden style="margin-bottom:12px"></p>
+    <button class="btn btn-secondary" id="change">Change password</button>
+    <span class="mono" id="changed" style="font-size:11px;color:var(--pb-liveInk);margin-left:12px"></span>
+  </section>
+
+  <hr style="height:2px;border:0;background:rgba(32,30,29,.4);margin:0 0 42px">
+
+  <!-- help: feedback lives here, not in the footer -->
+  <section style="margin-bottom:42px">
+    <p class="kicker">help</p>
+    <div style="display:flex;gap:12px;flex-wrap:wrap">
+      <button class="btn btn-secondary" data-feedback="feedback">Send feedback</button>
+      <button class="btn btn-secondary" data-feedback="bug">Report a bug</button>
+    </div>
+    <p class="mono muted" style="font-size:10.5px;margin:12px 0 0">diagnostics are optional and shown before anything is sent</p>
+  </section>
+
+  <hr style="height:2px;border:0;background:rgba(128,128,128,.4);margin:0 0 42px">
+
+  <!-- legal, directly above sign out -->
+  <section style="margin-bottom:42px">
+    <p class="kicker">legal</p>
+    <div style="display:flex;gap:12px;flex-wrap:wrap">
+      <button class="btn btn-secondary" data-legal="terms">Terms of use</button>
+      <button class="btn btn-secondary" data-legal="privacy">Privacy policy</button>
+    </div>
+    <p class="mono muted" id="consent" style="font-size:10.5px;margin:12px 0 0"></p>
+  </section>
+
+  <hr style="height:2px;border:0;background:rgba(32,30,29,.4);margin:0 0 42px">
+
+  <!-- session + destruction -->
+  <section>
+    <p class="kicker">session</p>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:24px">
+      <button class="btn btn-secondary" id="signout">Sign out</button>
+      <button class="btn btn-secondary" id="del" style="border-color:var(--pb-revoked);color:var(--pb-revokedInk)">Delete account</button>
+    </div>
+    <p class="mono muted" style="font-size:10.5px;max-width:56ch">deleting the account revokes every code you made — scans stop working immediately — and removes your photos</p>
+  </section>
+</div>
+
+<!-- legal modal -->
+<div id="modal" hidden style="position:fixed;inset:0;background:rgba(45,43,43,.5);display:grid;place-items:center;padding:24px;z-index:60">
+  <div style="background:var(--pb-bg);max-width:640px;width:100%;max-height:80vh;display:flex;flex-direction:column;padding:24px">
+    <div id="modal-body" style="overflow:auto;flex:1"></div>
+    <hr style="height:2px;border:0;background:rgba(32,30,29,.4);margin:24px 0 12px">
+    <button class="btn btn-primary" id="modal-close">Close</button>
+  </div>
+</div>
+
+<script src="/static/app.js"></script>
+<script src="/static/consent.js"></script>
+<script src="/static/chrome.js"></script>
+<script src="/static/download.js"></script>
+<script src="/static/legal.js"></script>
+<script src="/static/feedback.js"></script>
+<script src="/static/profile.js"></script>
+<script src="/static/sync.js"></script>
+</body>
+</html>

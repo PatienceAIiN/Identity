@@ -1,0 +1,17 @@
+[project]
+name = "binding"
+version = "0.1.0"
+description = "Photo-bound credential evidence: exact digest, perceptual fingerprints, Ed25519-signed bindings, fail-closed verifier"
+requires-python = ">=3.12"
+dependencies = [
+    "numpy",
+    "opencv-python-headless",
+    "cryptography",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["binding*"]

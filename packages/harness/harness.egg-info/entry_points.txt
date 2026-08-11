@@ -1,0 +1,3 @@
+[console_scripts]
+harness-analyze = harness.analyze:main
+harness-sweep = harness.sweep:main
