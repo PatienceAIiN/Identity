@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Usage — Identity by Patience AI</title>
+<meta name="description" content="How many codes you have made, how many are live, and where they are being scanned.">
+<meta name="robots" content="noindex,follow">
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/styles.css">
+<style id="guard-preload">html{visibility:hidden}html.public{visibility:visible}</style>
+</head>
+<body>
+<nav class="nav">
+  <a class="nav-brand" href="/">Identity</a>
+  <a href="/app/codes.html">Codes</a>
+  <a href="/app/new.html">New code</a>
+  <a href="/app/scan.html">Scan</a>
+  <a href="/app/usage.html" aria-current="page">Usage</a>
+  <a href="/app/profile.html">Profile</a>
+  <a class="btn btn-ghost" href="/app/auth.html">Sign in</a>
+</nav>
+<div class="wrap" style="max-width:900px">
+  <h3 style="margin-bottom:24px">Usage</h3>
+  <div id="budget" style="margin-bottom:24px"></div>
+  <div id="stats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:24px"></div>
+  <div id="chart-scans" style="margin-bottom:24px"></div>
+  <div id="chart-made" style="margin-bottom:24px"></div>
+  <div id="chart-hours" style="margin-bottom:24px"></div>
+  <div id="top"></div>
+</div>
+<script src="/static/app.js"></script>
+<script src="/static/consent.js"></script>
+<script src="/static/chrome.js"></script>
+<script src="/static/download.js"></script>
+<script src="/static/legal.js"></script>
+<script src="/static/feedback.js"></script>
+<script>
+/* Your own activity. Deliberately not the developer console: that one is about
+   API keys and belongs to a different account. Bars rather than lines — these
+   are counts per day, and a line between two days implies values in between
+   that never existed. */
+const $ = (id) => document.getElementById(id);
+const ACCENT = "var(--pb-accent)";
+
+function tile(label, value, note) {
+  return `<div style="border:1px solid rgba(32,30,29,.18);padding:12px">
+    <p class="mono muted" style="font-size:10px;margin:0 0 4px">${label}</p>
+    <p class="mono" style="font-size:22px;font-weight:700;margin:0;letter-spacing:-.02em">${value}</p>
+    ${note ? `<p class="mono muted" style="font-size:10px;margin:4px 0 0">${note}</p>` : ""}
+  </div>`;
+}
+
+function bars(title, rows, note, colour) {
+  if (!rows.some(r => r.value)) {
+    return `<p class="kicker">${title}</p>
+      <p class="mono muted" style="font-size:11px">nothing yet</p>`;
+  }
+  const max = Math.max(...rows.map(r => r.value), 1);
+  return `<p class="kicker">${title}</p>
+    ${note ? `<p class="mono muted" style="font-size:10.5px;margin:0 0 8px">${note}</p>` : ""}
+    <div style="overflow-x:auto;padding-bottom:4px">
+      <div style="display:flex;gap:6px;align-items:flex-end;min-height:126px">
+        ${rows.map(r => `
+          <div style="display:flex;flex-direction:column;justify-content:flex-end;
+              align-items:center;gap:4px;min-width:22px">
+            <span class="mono muted" style="font-size:9px">${r.value || ""}</span>
+            <div title="${r.label}: ${r.value}" style="width:14px;
+              height:${Math.max(Math.round((r.value / max) * 92), r.value ? 2 : 1)}px;
+              background:${r.value ? (colour || ACCENT) : "rgba(32,30,29,.18)"}"></div>
+            <span class="mono muted" style="font-size:9px;white-space:nowrap">${r.short}</span>
+          </div>`).join("")}
+      </div>
+    </div>`;
+}
+
+function series(map, days, fmt) {
+  const out = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10);
+    out.push({ label: d, short: d.slice(8), value: map[d] || 0 });
+  }
+  return out;
+}
+
+async function load() {
+  const me = await requireAuth();
+  if (!me) return;
+  const u = await api("/v1/me/usage");
+
+  const pct = Math.min(100, Math.round((u.codes_used_this_month / u.codes_limit) * 100));
+  const reset = new Date(u.resets_at);
+  $("budget").innerHTML = `
+    <p class="kicker">codes this month · ${u.month}</p>
+    <div style="border:1px solid rgba(32,30,29,.18);padding:16px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap">
+        <span class="mono" style="font-size:20px;font-weight:700">${u.codes_used_this_month} / ${u.codes_limit}</span>
+        <span class="mono muted" style="font-size:11px">${u.codes_remaining_this_month} left ·
+          resets ${reset.toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+      </div>
+      <div style="height:8px;background:rgba(32,30,29,.15);margin-top:12px">
+        <div style="height:8px;width:${pct}%;background:${ACCENT}"></div>
+      </div>
+      <p class="mono muted" style="font-size:10.5px;margin:8px 0 0">
+        deleting a code does not give the slot back — the count is what you made, not what you kept</p>
+    </div>`;
+
+  $("stats").innerHTML =
+    tile("codes", u.codes_total, `${u.codes_live} live · ${u.codes_off} off`) +
+    tile("scans", u.scans_total, "across every copy") +
+    tile("busiest hour", u.peak_hour_scans,
+         u.peak_hour ? u.peak_hour.replace("T", " ") + ":00" : "—") +
+    tile("live now", u.codes_live, "still resolving");
+
+  const scanMap = {}; u.scans_by_day.forEach(d => scanMap[d.day] = d.count);
+  const madeMap = {}; u.codes_by_day.forEach(d => madeMap[d.day] = d.count);
+  const hourMap = {}; u.scans_by_hour.forEach(h => hourMap[h.hour] = h.count);
+
+  $("chart-scans").innerHTML = bars("scans per day · last 30",
+    series(scanMap, 30), "when your codes were actually used");
+  $("chart-made").innerHTML = bars("codes made per day · last 30",
+    series(madeMap, 30), "", "var(--pb-live)");
+
+  const hours = [];
+  for (let i = 23; i >= 0; i--) {
+    const key = new Date(Date.now() - i * 3600000).toISOString().slice(0, 13);
+    hours.push({ label: key, short: key.slice(11), value: hourMap[key] || 0 });
+  }
+  $("chart-hours").innerHTML = bars("scans per hour · last 24", hours, "UTC");
+
+  $("top").innerHTML = `<p class="kicker">most scanned</p>
+    ${u.top_codes.length ? u.top_codes.map(c => `
+      <div class="mono" style="font-size:11px;display:flex;gap:12px;justify-content:space-between;
+        border-bottom:1px solid rgba(32,30,29,.12);padding:7px 0">
+        <span style="overflow-wrap:anywhere">${c.opaque_resolution_id}
+          ${c.label ? "· " + c.label : ""} · ${c.state}</span>
+        <span>${c.scans}</span></div>`).join("")
+      : `<p class="mono muted" style="font-size:11px">no codes yet</p>`}`;
+}
+load();
+</script>
+<script src="/static/sync.js"></script>
+</body>
+</html>

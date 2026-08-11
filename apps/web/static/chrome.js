@@ -120,7 +120,7 @@ mountNavDeveloper();
 
 /* ── navbar: signed-in destinations are hidden until there is a session ──── */
 const PRIVATE_LINKS = ["/app/codes.html", "/app/new.html", "/app/scan.html",
-                       "/app/profile.html"];
+                       "/app/usage.html", "/app/profile.html"];
 
 function hidePrivateNav() {
   document.querySelectorAll(".nav a").forEach((a) => {
@@ -172,7 +172,8 @@ async function refreshSession() {
    with it. The marketing pages keep a flowing footer, because there the page
    really is something you read to the end. */
 const PINNED_CHROME_PAGES = ["/app/codes.html", "/app/new.html",
-                             "/app/scan.html", "/app/profile.html", "/dev"];
+                             "/app/scan.html", "/app/usage.html",
+                             "/app/profile.html", "/dev"];
 
 function chromeIsPinned() {
   return PINNED_CHROME_PAGES.some((p) => location.pathname.startsWith(p));

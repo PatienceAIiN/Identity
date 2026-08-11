@@ -890,6 +890,82 @@ def create_app(keys_dir: str | Path = "dev-keys", db_url: str | None = None,
                 "remaining": max(0, USER_MONTHLY_CODES - used),
                 "resets_at": next_reset_iso()}
 
+    @app.get("/v1/me/usage")
+    def my_usage(request: Request, db=Depends(get_db)):
+        """This account's own activity.
+
+        Deliberately separate from the developer console's usage: that one is
+        about API keys and belongs to a different account type. Someone making
+        codes for themselves wants to know how many they have, how many are still
+        live, and where they are being scanned.
+        """
+        u = current_user(request, db)
+        from platformapi import billing_month, next_reset_iso
+        month = billing_month()
+        row = (db.query(CodeQuota).filter_by(user_id=u.user_id, month=month)
+               .first())
+        used = row.count if row else 0
+
+        creds = db.query(Credential).filter_by(user_id=u.user_id).all()
+        cred_ids = [c.credential_id for c in creds]
+        shares = (db.query(Share).filter(Share.credential_id.in_(cred_ids)).all()
+                  if cred_ids else [])
+        revoked_creds = {c.credential_id for c in creds if c.revoked_at}
+
+        live = off = 0
+        per_code = []
+        for sh in shares:
+            state = "revoked" if sh.credential_id in revoked_creds else sh.state()
+            live += state == "active"
+            off += state != "active"
+            per_code.append({"opaque_resolution_id": sh.opaque_resolution_id,
+                             "label": sh.label, "state": state,
+                             "scans": sh.scan_count,
+                             "created_at": sh.created_at.isoformat()})
+        per_code.sort(key=lambda x: x["scans"], reverse=True)
+
+        # Scans by day, from the events themselves rather than the running total,
+        # so the chart shows when they happened and not just how many there were.
+        share_ids = [sh.share_id for sh in shares]
+        by_day, by_hour = {}, {}
+        if share_ids:
+            for ev in (db.query(ScanEvent)
+                       .filter(ScanEvent.share_id.in_(share_ids))
+                       .order_by(ScanEvent.ts.desc()).limit(5000).all()):
+                d = ev.ts.strftime("%Y-%m-%d")
+                by_day[d] = by_day.get(d, 0) + 1
+                by_hour[ev.ts.strftime("%Y-%m-%dT%H")] = \
+                    by_hour.get(ev.ts.strftime("%Y-%m-%dT%H"), 0) + 1
+
+        # Codes made by day, so the two series can be read against each other.
+        made_by_day = {}
+        for sh in shares:
+            d = sh.created_at.strftime("%Y-%m-%d")
+            made_by_day[d] = made_by_day.get(d, 0) + 1
+
+        peak_hour, peak_count = "", 0
+        for h, c in by_hour.items():
+            if c > peak_count:
+                peak_hour, peak_count = h, c
+
+        return {
+            "month": month,
+            "codes_limit": USER_MONTHLY_CODES,
+            "codes_used_this_month": used,
+            "codes_remaining_this_month": max(0, USER_MONTHLY_CODES - used),
+            "resets_at": next_reset_iso(),
+            "codes_total": len(shares),
+            "codes_live": live,
+            "codes_off": off,
+            "scans_total": sum(sh.scan_count for sh in shares),
+            "peak_hour": peak_hour,
+            "peak_hour_scans": peak_count,
+            "scans_by_day": [{"day": d, "count": c} for d, c in sorted(by_day.items())],
+            "scans_by_hour": [{"hour": h, "count": c} for h, c in sorted(by_hour.items())],
+            "codes_by_day": [{"day": d, "count": c} for d, c in sorted(made_by_day.items())],
+            "top_codes": per_code[:10],
+        }
+
     @app.get("/v1/codes")
     def list_codes(request: Request, db=Depends(get_db)):
         u = current_user(request, db)
