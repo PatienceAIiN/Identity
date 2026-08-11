@@ -33,7 +33,7 @@ img { display: block; max-width: 100%; }
 :focus-visible { outline: 2px solid var(--pb-accent); outline-offset: 2px; }
 ::selection { background: rgba(255,72,176,.3); }
 
-.nav { display: flex; align-items: center; gap: 24px; padding: 16px 24px 14px; border-bottom: var(--pb-rule) solid rgba(32,30,29,.4); }
+.nav { display: flex; align-items: center; gap: 24px; padding: 16px 24px 14px; border-bottom: 1px solid rgba(32,30,29,.18); }
 /* Wordmark: set large and very tight, descriptor stacked small underneath
    rather than competing on the same line. The square is the product's own
    finder geometry, not decoration. */
@@ -63,7 +63,7 @@ img { display: block; max-width: 100%; }
 .btn-primary { background: var(--pb-accent); }
 .btn-primary:hover { background: var(--pb-accentHover); }
 .btn-primary:active { background: var(--pb-accentActive); }
-.btn-secondary { border-color: rgba(32,30,29,.4); }
+.btn-secondary { border-color: rgba(32,30,29,.28); }
 .btn-secondary:hover { background: rgba(32,30,29,.07); }
 .btn-ghost { color: #B00A6F; padding-inline: 4px; }
 .btn-ghost:hover { background: rgba(255,72,176,.1); }
@@ -84,13 +84,18 @@ img { display: block; max-width: 100%; }
 .tag-revoked { background: var(--pb-revokedBg); color: var(--pb-revokedInk); }
 .tag-expiring { background: var(--pb-expiringBg); color: var(--pb-expiringInk); }
 
-.panel { border: var(--pb-rule) solid rgba(32,30,29,.4); padding: 24px; background: var(--pb-surface); }
+/* A panel is a surface, not a frame. The heavy rule plus 24px of grey padding
+   boxed in whatever it held — worst of all an image, which then read as a
+   picture inside a picture frame. */
+.panel { border: 1px solid rgba(32,30,29,.14); padding: 16px; background: var(--pb-surface); }
+/* For images: no padding, no border, nothing competing with the picture. */
+.panel.flush { padding: 0; border: 0; background: transparent; }
 .result { border-top: 4px solid var(--pb-live); background: #fff; padding: 24px; }
 .result.revoked { border-top-color: var(--pb-revoked); }
 .result.expiring { border-top-color: var(--pb-expiring); }
 .codebox {
   font-family: var(--pb-ui); font-size: 12px; line-height: 1.9;
-  border: 1px solid rgba(32,30,29,.4); padding: 12px; overflow-wrap: anywhere;
+  border: 1px solid rgba(32,30,29,.18); padding: 12px; overflow-wrap: anywhere;
 }
 .err { font-size: 13px; color: var(--pb-revokedInk); border-left: 3px solid var(--pb-revoked); padding-left: 12px; }
 

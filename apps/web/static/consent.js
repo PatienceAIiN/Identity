@@ -84,7 +84,25 @@ function openConsent() {
     .addEventListener("click", () => applyConsent("necessary"));
 }
 
-/* A footer entry point, so withdrawing is as easy as giving. */
+/* A footer entry point, so withdrawing is as easy as giving.
+ *
+ * The footer is created by chrome.js, which registers its DOMContentLoaded
+ * handler after this file's — so at the moment this first runs there is usually
+ * no footer to attach to, and the link silently never appeared. Watch for it
+ * instead of assuming it is already there. */
+function whenFooterExists(fn) {
+  if (document.querySelector("footer")) { fn(); return; }
+  const stop = setTimeout(() => observer.disconnect(), 10000);
+  const observer = new MutationObserver(() => {
+    if (document.querySelector("footer")) {
+      observer.disconnect();
+      clearTimeout(stop);
+      fn();
+    }
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+}
+
 function mountConsentLink() {
   document.querySelectorAll("footer").forEach((f) => {
     if (f.querySelector(".consent-link")) return;
@@ -104,7 +122,7 @@ function mountConsentLink() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  mountConsentLink();
+  whenFooterExists(mountConsentLink);
   // The resolution page handles decryption keys and carries a strict policy of
   // its own; it gets no banner and no third-party anything.
   if (location.pathname.startsWith("/r/") || location.pathname.startsWith("/c/")) return;

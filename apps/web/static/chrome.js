@@ -102,6 +102,9 @@ mountNavDownload();
    profile and shows no keys to a normal account — being findable and being
    readable are different things. */
 function mountNavDeveloper() {
+  // Not inside the console itself: a link to where you already are, sitting next
+  // to Sign out, is just something else to misclick.
+  if (location.pathname.startsWith("/dev")) return;
   document.querySelectorAll(".nav").forEach((nav) => {
     if (nav.querySelector("#nav-dev")) return;
     const a = document.createElement("a");

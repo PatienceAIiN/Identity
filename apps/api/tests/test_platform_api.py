@@ -275,10 +275,52 @@ def test_signed_calls_are_capped_per_minute(server):
     c = dev_client(base, "rate@example.org", outbox)
     key_id, secret = mint_key(c, scopes=["codes:read"])
     codes = [signed(base, key_id, secret, "GET", "/api/v1/codes").status_code
-             for _ in range(34)]
+             for _ in range(14)]
     assert 429 in codes, "the per-key ceiling did not engage"
-    # The ones before the ceiling still worked, so this is a limit and not a wall.
-    assert codes[0] == 200 and codes.count(200) >= 25
+    # Ten get through, so this is a limit and not a wall.
+    assert codes[0] == 200 and codes.count(200) == 10
+
+
+def test_the_monthly_budget_is_per_account_not_per_key(server):
+    """A second key must not double the allowance — otherwise the cap is a
+    formality anyone can lift by clicking 'create key' again."""
+    base, outbox = server
+    c = dev_client(base, "budget@example.org", outbox)
+    usage = c.get("/v1/dev/usage").json()
+    assert usage["limit_per_month"] == 300
+    assert usage["limit_per_minute"] == 10
+    assert usage["used_this_month"] == 0
+    assert usage["remaining_this_month"] == 300
+    # The reset is midnight IST on the first of next month.
+    assert usage["resets_at"].endswith("+05:30")
+    assert usage["resets_at"][8:10] == "01"
+
+    k1, s1 = mint_key(c, scopes=["codes:read"])
+    for _ in range(3):
+        assert signed(base, k1, s1, "GET", "/api/v1/codes").status_code == 200
+    after = c.get("/v1/dev/usage").json()
+    assert after["used_this_month"] == 3
+    assert after["remaining_this_month"] == 297
+
+    # A second key draws from the same budget rather than its own.
+    k2, s2 = mint_key(c, scopes=["codes:read"])
+    assert signed(base, k2, s2, "GET", "/api/v1/codes").status_code == 200
+    both = c.get("/v1/dev/usage").json()
+    assert both["used_this_month"] == 4, "keys did not share one account budget"
+
+
+def test_usage_reports_peaks_and_callers_without_storing_addresses(server):
+    base, outbox = server
+    c = dev_client(base, "graph@example.org", outbox)
+    key_id, secret = mint_key(c, scopes=["codes:read"])
+    for _ in range(4):
+        signed(base, key_id, secret, "GET", "/api/v1/codes")
+    u = c.get("/v1/dev/usage").json()
+    assert u["peak_hour_count"] >= 4 and u["peak_hour"]
+    assert u["hours"] and u["days"]
+    assert u["callers"] and u["callers_are_hashed"] is True
+    # The calling address itself must not be recoverable from the response.
+    assert "127.0.0.1" not in json.dumps(u)
 
 
 def test_a_normal_account_cannot_reach_developer_keys(server):
@@ -401,3 +443,43 @@ def test_signing_up_as_a_developer_needs_control_of_the_address(server):
     assert attacker.post("/v1/dev/auth/verify",
                          json={"email": "victim@example.org",
                                "code": "123456"}).status_code == 401
+
+
+def test_deleting_a_revoked_key_cannot_reset_the_monthly_budget(server):
+    """The obvious way to cheat the cap: revoke a key, delete it, and hope its
+    calls disappear with it. They must not."""
+    base, outbox = server
+    c = dev_client(base, "purge@example.org", outbox)
+    key_id, secret = mint_key(c, scopes=["codes:read"])
+    for _ in range(4):
+        assert signed(base, key_id, secret, "GET", "/api/v1/codes").status_code == 200
+    assert c.get("/v1/dev/usage").json()["used_this_month"] == 4
+
+    # A live key cannot be deleted — revoking is a separate, deliberate step.
+    assert c.request("DELETE", f"/v1/dev/keys/{key_id}/purge").status_code == 409
+
+    assert c.request("DELETE", f"/v1/dev/keys/{key_id}").status_code == 200
+    assert c.request("DELETE", f"/v1/dev/keys/{key_id}/purge").status_code == 200
+
+    # Gone from the list, still counted against the month.
+    assert key_id not in c.get("/v1/dev/keys").text
+    after = c.get("/v1/dev/usage").json()
+    assert after["used_this_month"] == 4, "purging a key reset the budget"
+    assert after["remaining_this_month"] == 296
+
+
+def test_purging_is_scoped_to_the_owner_and_bulk_only_takes_revoked(server):
+    base, outbox = server
+    a = dev_client(base, "pa@example.org", outbox)
+    b = dev_client(base, "pb@example.org", outbox)
+    a_dead, _ = mint_key(a)
+    a_live, _ = mint_key(a)
+    a.request("DELETE", f"/v1/dev/keys/{a_dead}")
+
+    # Another developer cannot purge it.
+    assert b.request("DELETE", f"/v1/dev/keys/{a_dead}/purge").status_code == 404
+
+    r = a.post("/v1/dev/keys/purge-revoked")
+    assert r.status_code == 200 and r.json()["count"] == 1
+    listed = a.get("/v1/dev/keys").text
+    assert a_dead not in listed and a_live in listed, "bulk purge took a live key"

@@ -69,7 +69,13 @@ _LADDER = (
 class EncodeOptions:
     contrast: str = "strong"
     alpha_protected: float = 0.45
-    center_ratio: float = 0.5
+    # Measured across 8 photos x 5 conditions: 0.42 holds 100% decode on
+    # everything — flat, JPEG-75, +/-15 degrees and 25% downscale — while showing
+    # measurably more of the photograph than the 0.5 this used to be. Going to
+    # 0.38 gains a little more visibility but drops the 25%-downscale case to
+    # 88%, which is the condition a messaging app puts a shared code through, so
+    # it is not taken by default.
+    center_ratio: float = 0.42
     # How strongly the 4-module quiet ring is pushed to white. The ring is
     # required for scanning; how opaque it has to be is a measured question, and
     # every point of it costs visible photo at the border.

@@ -74,7 +74,6 @@
 </div>
 
 <div class="wrap" id="dev-body" hidden style="max-width:880px">
-  <h3 style="margin-bottom:8px">Developers</h3>
   <div id="dev-tabs" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:42px;border-bottom:2px solid rgba(32,30,29,.25);padding-bottom:12px">
     <button class="btn btn-ghost" data-tab="keys">Keys</button>
     <button class="btn btn-ghost" data-tab="usage">Usage</button>
@@ -108,13 +107,16 @@
 
   <section data-panel="usage">
     <p class="kicker">usage</p>
-    <div id="usage" class="mono muted" style="font-size:11.5px;line-height:1.9"></div>
+    <div id="budget" style="margin-bottom:24px"></div>
+    <div id="usage-stats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:24px"></div>
+    <div id="chart-days" style="margin-bottom:24px"></div>
+    <div id="chart-hours" style="margin-bottom:24px"></div>
+    <div id="usage-callers" style="margin-bottom:24px"></div>
+    <div id="usage-keys"></div>
   </section>
 
   <section data-panel="endpoint">
     <p class="kicker">your endpoint</p>
-    <p style="font-size:14px;max-width:60ch;margin-bottom:12px">This is the base URL
-      to call from your Android or web project. Paths below are appended to it.</p>
     <p class="mono" id="base-url"
        style="font-size:14px;font-weight:700;background:var(--pb-surface);padding:16px;overflow-wrap:anywhere;margin:0 0 12px"></p>
     <button class="btn btn-secondary" id="copy-base">Copy base URL</button>
@@ -122,9 +124,6 @@
 
   <section data-panel="test">
     <p class="kicker">try a key</p>
-    <p style="font-size:14px;max-width:60ch;margin-bottom:12px">Signs a real request
-      in this browser and calls the API with it. The secret is used here and sent
-      nowhere — it never leaves this page.</p>
     <div class="field" style="margin-bottom:12px;max-width:420px">
       <label for="t-id">Key id</label>
       <input id="t-id" class="input mono" style="font-size:12px" placeholder="pbk_...">
@@ -141,10 +140,6 @@
 
   <section data-panel="prompt">
     <p class="kicker">integration prompt</p>
-    <p style="font-size:14px;max-width:60ch;margin-bottom:12px">A brief you can paste
-      into an AI assistant to have it write the integration for you. Pick the target
-      and copy — it carries your key id and the exact signing rules, and it tells the
-      assistant never to hardcode the secret.</p>
     <div style="display:inline-flex;border:1px solid rgba(32,30,29,.4);margin-bottom:12px;flex-wrap:wrap" id="targets">
       <label style="display:inline-flex;align-items:center;gap:6px;padding:9px 12px;font-size:13px;cursor:pointer">
         <input type="radio" name="target" value="android" checked>Android · Kotlin</label>
@@ -166,9 +161,6 @@
 
   <section data-panel="docs">
     <p class="kicker">how to sign a request</p>
-    <p style="font-size:14px;max-width:62ch">Build the string below, HMAC-SHA256 it
-      with your secret, and send the hex digest. Timestamps more than five minutes
-      out are refused, and a nonce can't be used twice.</p>
     <pre class="mono" style="background:var(--pb-surface);padding:24px;overflow-x:auto;font-size:12px;line-height:1.8">METHOD \n PATH \n TIMESTAMP \n NONCE \n SHA256(BODY)
 
 headers:
@@ -321,8 +313,18 @@ $("dev-delete")?.addEventListener("click", async () => {
 });
 
 $("dev-signout").addEventListener("click", async () => {
-  await api("/v1/dev/auth/signout", { method: "POST" });
-  location.reload();
+  const ok = await confirmAction({
+    title: "Sign out of the developer console?",
+    body: "Your keys keep working — signing out only ends this session on this "
+        + "browser.",
+    confirmLabel: "Sign out",
+  });
+  if (!ok) return;
+  const done = withSpinner($("dev-signout"), "Signing out");
+  try {
+    await api("/v1/dev/auth/signout", { method: "POST" });
+    location.reload();
+  } catch (e) { done(); toast(e.message); }
 });
 
 async function boot() {
@@ -341,18 +343,62 @@ async function boot() {
   load();
 }
 
+let keyPage = 0;
+const KEYS_PER_PAGE = 6;
+
 async function load() {
   const { keys } = await api("/v1/dev/keys");
-  $("keys").innerHTML = keys.length ? keys.map(k => `
-    <div style="border:1px solid rgba(32,30,29,.4);padding:16px;margin-bottom:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-      <div style="flex:1;min-width:200px">
-        <p class="mono" style="font-size:12px;font-weight:700;margin:0 0 4px;overflow-wrap:anywhere">${k.key_id}</p>
-        <p class="mono muted" style="font-size:10.5px;margin:0">${k.name || "unnamed"} ·
-          ${k.scopes.join(" ")} · ${k.call_count} calls ·
-          ${k.revoked_at ? "revoked" : (k.last_used_at ? "last used " + k.last_used_at.slice(0,16).replace("T"," ") : "never used")}</p>
+  const live = keys.filter(k => !k.revoked_at);
+  const dead = keys.filter(k => k.revoked_at);
+  const pages = Math.max(1, Math.ceil(keys.length / KEYS_PER_PAGE));
+  if (keyPage >= pages) keyPage = pages - 1;
+  const shown = keys.slice(keyPage * KEYS_PER_PAGE, keyPage * KEYS_PER_PAGE + KEYS_PER_PAGE);
+
+  const summary = `<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:baseline;margin-bottom:12px">
+      <span class="mono" style="font-size:12px"><strong>${live.length}</strong> live</span>
+      <span class="mono muted" style="font-size:12px">${dead.length} revoked</span>
+      ${dead.length ? `<button class="btn btn-ghost" id="purge-all"
+        style="margin-left:auto;font-size:11px">Clear ${dead.length} revoked</button>` : ""}
+    </div>`;
+
+  const row = (k) => {
+    const revoked = !!k.revoked_at;
+    const used = k.last_used_at
+      ? "last used " + k.last_used_at.slice(0, 16).replace("T", " ")
+      : "never used";
+    return `<div style="border:1px solid rgba(32,30,29,${revoked ? ".15" : ".4"});
+        border-left:3px solid ${revoked ? "rgba(32,30,29,.25)" : "var(--pb-live)"};
+        padding:14px 16px;margin-bottom:10px;display:flex;gap:14px;align-items:center;
+        flex-wrap:wrap;${revoked ? "opacity:.62" : ""}">
+      <div style="flex:1;min-width:210px">
+        <p class="mono" style="font-size:12px;font-weight:700;margin:0 0 5px;overflow-wrap:anywhere">
+          ${k.key_id}</p>
+        <p class="mono muted" style="font-size:10.5px;margin:0;line-height:1.7">
+          ${k.name || "unnamed"} · ${k.scopes.join(" ")}<br>
+          ${k.call_count} calls · ${revoked ? "revoked" : used}</p>
       </div>
-      ${k.revoked_at ? "" : `<button class="btn btn-secondary" data-revoke="${k.key_id}">Revoke</button>`}
-    </div>`).join("") : `<p class="mono muted" style="font-size:11px">no keys yet</p>`;
+      ${revoked
+        ? `<button class="btn btn-ghost" data-purge="${k.key_id}" style="font-size:11px">Delete</button>`
+        : `<button class="btn btn-secondary" data-revoke="${k.key_id}">Revoke</button>`}
+    </div>`;
+  };
+
+  const pager = pages > 1
+    ? `<div style="display:flex;gap:12px;align-items:center;justify-content:center;margin-top:14px">
+        <button class="btn btn-secondary" id="kprev" ${keyPage === 0 ? "disabled" : ""}>Previous</button>
+        <span class="mono muted" style="font-size:11px">page ${keyPage + 1} of ${pages} · ${keys.length} keys</span>
+        <button class="btn btn-secondary" id="knext" ${keyPage >= pages - 1 ? "disabled" : ""}>Next</button>
+      </div>`
+    : "";
+
+  $("keys").innerHTML = keys.length
+    ? summary + shown.map(row).join("") + pager
+    : `<p class="mono muted" style="font-size:11px">no keys yet — create one above</p>`;
+
+  if (pages > 1) {
+    $("kprev").onclick = () => { keyPage--; load(); };
+    $("knext").onclick = () => { keyPage++; load(); };
+  }
 
   $("keys").querySelectorAll("[data-revoke]").forEach(b =>
     b.addEventListener("click", async () => {
@@ -370,10 +416,40 @@ async function load() {
       } catch (e) { done(); toast(e.message); }
     }));
 
-  const u = await api("/v1/dev/usage");
-  $("usage").innerHTML = u.days.length
-    ? u.days.map(d => `<div>${d.day} · ${d.key_id} · ${d.count} calls${d.rejected ? " · " + d.rejected + " refused" : ""}</div>`).join("")
-    : "<div>no calls yet</div>";
+  $("keys").querySelectorAll("[data-purge]").forEach(b =>
+    b.addEventListener("click", async () => {
+      const ok = await confirmAction({
+        title: "Delete this revoked key from the list?",
+        body: "It stays revoked either way. The calls it already made still count "
+            + "towards this month's total — deleting a key does not reset your usage.",
+        confirmLabel: "Delete", destructive: true,
+      });
+      if (!ok) return;
+      const done = withSpinner(b, "Deleting");
+      try {
+        await api(`/v1/dev/keys/${b.dataset.purge}/purge`, { method: "DELETE" });
+        toast("Deleted");
+        load();
+      } catch (e) { done(); toast(e.message); }
+    }));
+
+  $("purge-all")?.addEventListener("click", async () => {
+    const ok = await confirmAction({
+      title: `Clear ${dead.length} revoked keys?`,
+      body: "They stay revoked either way, and the calls they made still count "
+          + "towards this month's total.",
+      confirmLabel: "Clear them", destructive: true,
+    });
+    if (!ok) return;
+    const done = withSpinner($("purge-all"), "Clearing");
+    try {
+      await api("/v1/dev/keys/purge-revoked", { method: "POST" });
+      toast("Cleared");
+      load();
+    } catch (e) { done(); toast(e.message); }
+  });
+
+  renderUsage(await api("/v1/dev/usage"));
 }
 
 $("mint").addEventListener("click", async () => {
@@ -552,6 +628,115 @@ $("copy-prompt").addEventListener("click", () => {
   toast("Prompt copied");
 });
 renderPrompt();
+
+
+/* Usage.
+ *
+ * Bars rather than lines: these are counts per bucket, and a line between two
+ * days implies values in between that do not exist. One accent throughout, a
+ * muted grid, and every chart scrolls inside its own box so a long history never
+ * makes the page scroll sideways. Values are labelled, because a chart nobody can
+ * read a number off is decoration. */
+const ACCENT = "var(--pb-accent)";
+
+function tile(label, value, note) {
+  return `<div style="border:1px solid rgba(32,30,29,.25);padding:12px">
+    <p class="mono muted" style="font-size:10px;margin:0 0 4px">${label}</p>
+    <p class="mono" style="font-size:22px;font-weight:700;margin:0;letter-spacing:-.02em">${value}</p>
+    ${note ? `<p class="mono muted" style="font-size:10px;margin:4px 0 0">${note}</p>` : ""}
+  </div>`;
+}
+
+function barChart(title, rows, note) {
+  if (!rows.length) {
+    return `<p class="kicker">${title}</p>
+      <p class="mono muted" style="font-size:11px">nothing recorded yet</p>`;
+  }
+  const max = Math.max(...rows.map(r => r.value), 1);
+  const bars = rows.map(r => {
+    const h = Math.round((r.value / max) * 96);
+    return `<div style="display:flex;flex-direction:column;justify-content:flex-end;
+        align-items:center;gap:4px;min-width:22px">
+      <span class="mono muted" style="font-size:9px">${r.value || ""}</span>
+      <div title="${r.label}: ${r.value}" style="width:14px;height:${Math.max(h, r.value ? 2 : 1)}px;
+        background:${r.value ? ACCENT : "rgba(32,30,29,.18)"}"></div>
+      <span class="mono muted" style="font-size:9px;white-space:nowrap">${r.short}</span>
+    </div>`;
+  }).join("");
+  return `<p class="kicker">${title}</p>
+    ${note ? `<p class="mono muted" style="font-size:10.5px;margin:0 0 8px">${note}</p>` : ""}
+    <div style="overflow-x:auto;padding-bottom:4px">
+      <div style="display:flex;gap:6px;align-items:flex-end;min-height:130px">${bars}</div>
+    </div>`;
+}
+
+function renderUsage(u) {
+  const pct = Math.min(100, Math.round((u.used_this_month / u.limit_per_month) * 100));
+  const reset = new Date(u.resets_at);
+  $("budget").innerHTML = `
+    <p class="kicker">this month · ${u.month}</p>
+    <div style="border:1px solid rgba(32,30,29,.25);padding:16px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap">
+        <span class="mono" style="font-size:20px;font-weight:700">${u.used_this_month} / ${u.limit_per_month}</span>
+        <span class="mono muted" style="font-size:11px">${u.remaining_this_month} left ·
+          resets ${reset.toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+      </div>
+      <div style="height:8px;background:rgba(32,30,29,.15);margin-top:12px">
+        <div style="height:8px;width:${pct}%;background:${ACCENT}"></div>
+      </div>
+      <p class="mono muted" style="font-size:10.5px;margin:8px 0 0">
+        the budget is per account, shared across every key — a new key does not raise it</p>
+    </div>`;
+
+  $("usage-stats").innerHTML =
+    tile("per minute", u.limit_per_minute, "per key") +
+    tile("all time", u.all_time_total, "successful calls") +
+    tile("refused", u.all_time_rejected, "bad signature, replay, or over a limit") +
+    tile("busiest hour", u.peak_hour_count,
+         u.peak_hour ? u.peak_hour.replace("T", " ") + ":00" : "—");
+
+  // Last 30 days, zero-filled so a gap reads as a gap rather than closing up.
+  const byDay = {};
+  u.days.forEach(d => { byDay[d.day] = (byDay[d.day] || 0) + d.count; });
+  const dayRows = [];
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10);
+    dayRows.push({ label: d, short: d.slice(8), value: byDay[d] || 0 });
+  }
+  $("chart-days").innerHTML = barChart("calls per day · last 30", dayRows,
+    "date along the bottom");
+
+  // Last 24 hours.
+  const byHour = {};
+  u.hours.forEach(h => { byHour[h.hour] = h.count; });
+  const hourRows = [];
+  for (let i = 23; i >= 0; i--) {
+    const t = new Date(Date.now() - i * 3600000);
+    const key = t.toISOString().slice(0, 13);
+    hourRows.push({ label: key, short: key.slice(11), value: byHour[key] || 0 });
+  }
+  $("chart-hours").innerHTML = barChart("calls per hour · last 24", hourRows,
+    "hour of the day, UTC");
+
+  const callers = u.callers.slice(0, 10);
+  $("usage-callers").innerHTML = `<p class="kicker">where calls came from</p>
+    <p class="mono muted" style="font-size:10.5px;margin:0 0 8px">
+      addresses are salted, truncated hashes — enough to tell one caller from
+      another, not enough to recover the address</p>
+    ${callers.length ? callers.map(c =>
+      `<div class="mono" style="font-size:11px;display:flex;gap:12px;justify-content:space-between;
+         border-bottom:1px solid rgba(32,30,29,.12);padding:6px 0">
+        <span>${c.caller} · ${c.day}</span><span>${c.count}</span></div>`).join("")
+      : `<p class="mono muted" style="font-size:11px">no calls yet</p>`}`;
+
+  $("usage-keys").innerHTML = `<p class="kicker">by key</p>
+    ${u.keys.length ? u.keys.map(k =>
+      `<div class="mono" style="font-size:11px;display:flex;gap:12px;justify-content:space-between;
+         border-bottom:1px solid rgba(32,30,29,.12);padding:6px 0">
+        <span style="overflow-wrap:anywhere">${k.key_id} ${k.name ? "· " + k.name : ""}${k.revoked ? " · revoked" : ""}</span>
+        <span>${k.calls_total}</span></div>`).join("")
+      : `<p class="mono muted" style="font-size:11px">no keys yet</p>`}`;
+}
 
 /* Tabs, so the console is a set of places rather than one long scroll. The
    selected one is the only one in the document flow, which also keeps the page

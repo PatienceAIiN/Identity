@@ -54,7 +54,24 @@ SIGNATURE_WINDOW_S = 300
 # Per key, per minute. A signed request is cheap to make and each one can create
 # a code, which is not cheap to serve — so the ceiling is on the key, not on the
 # address: a key used from a hundred phones is still one integration's budget.
-RATE_PER_MINUTE = 30
+RATE_PER_MINUTE = 10
+# Per developer account, per calendar month, across every key they hold. A
+# per-key cap alone is not a budget: minting a second key would double it.
+MONTHLY_CALL_CAP = 300
+# The budget is a calendar month in India Standard Time, so it resets at 00:00 on
+# the 1st where the people using it live rather than at 05:30 the previous day.
+BILLING_TZ = timezone(timedelta(hours=5, minutes=30))
+
+
+def billing_month(at: datetime | None = None) -> str:
+    return (at or datetime.now(BILLING_TZ)).astimezone(BILLING_TZ).strftime("%Y-%m")
+
+
+def next_reset_iso() -> str:
+    """Midnight IST on the first of next month."""
+    now = datetime.now(BILLING_TZ)
+    year, month = (now.year + 1, 1) if now.month == 12 else (now.year, now.month + 1)
+    return datetime(year, month, 1, tzinfo=BILLING_TZ).isoformat()
 ADMIN_SESSION_TTL = timedelta(hours=8)
 ADMIN_COOKIE = "pb_admin"
 DEV_COOKIE = "pb_dev"
@@ -106,6 +123,30 @@ class ApiCallDay(Base):
     day: Mapped[str] = mapped_column(String, index=True)      # YYYY-MM-DD
     count: Mapped[int] = mapped_column(Integer, default=0)
     rejected: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class ApiCallIp(Base):
+    """Calls per key per day per calling address.
+
+    The address is stored as a truncated salted hash: enough to tell one caller
+    from another and to spot a single source spiking, and not enough to recover
+    the address itself.
+    """
+    __tablename__ = "api_call_ips"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    key_id: Mapped[str] = mapped_column(String, index=True)
+    day: Mapped[str] = mapped_column(String, index=True)
+    ip_hash: Mapped[str] = mapped_column(String, index=True)
+    count: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class ApiCallHour(Base):
+    """Calls per key per hour, for the peak chart."""
+    __tablename__ = "api_call_hours"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    key_id: Mapped[str] = mapped_column(String, index=True)
+    hour: Mapped[str] = mapped_column(String, index=True)      # YYYY-MM-DDTHH
+    count: Mapped[int] = mapped_column(Integer, default=0)
 
 
 class Developer(Base):
@@ -256,6 +297,16 @@ def make_router(SessionLocal, secret_box, check_secret, hash_secret,
     # Redis here, the same as the rate limiter.
     seen_nonces: dict[str, float] = {}
     call_times: dict[str, list[float]] = {}
+    # Salt lives only in this process: restarting reshuffles the buckets, which is
+    # the right trade for never being able to reverse one into an address.
+    ip_salt = secrets.token_hex(16)
+    _caller_hash = ""
+
+    def caller_hash(request: Request) -> str:
+        who = request.client.host if request.client else ""
+        if not who:
+            return ""
+        return hashlib.sha256((ip_salt + who).encode()).hexdigest()[:12]
 
     def db_session():
         db = SessionLocal()
@@ -475,46 +526,121 @@ def make_router(SessionLocal, secret_box, check_secret, hash_secret,
         announce(u.user_id, "keys.changed", {"reason": "revoked"})
         return {"key_id": key_id, "revoked": True}
 
+    def purge_one(db, dev, key: ApiKey) -> None:
+        marker = account_marker(dev.user_id)
+        # Daily counts are the budget, so they are re-pointed rather than removed.
+        for row in db.query(ApiCallDay).filter_by(key_id=key.key_id).all():
+            existing = (db.query(ApiCallDay)
+                        .filter_by(key_id=marker, day=row.day).first())
+            if existing is None:
+                row.key_id = marker
+            else:
+                existing.count += row.count
+                existing.rejected += row.rejected
+                db.delete(row)
+        # The hour and caller detail is diagnostic, not a budget, so it goes.
+        db.query(ApiCallHour).filter_by(key_id=key.key_id).delete(
+            synchronize_session=False)
+        db.query(ApiCallIp).filter_by(key_id=key.key_id).delete(
+            synchronize_session=False)
+        db.delete(key)
+
+    @router.delete("/v1/dev/keys/{key_id}/purge")
+    def purge_key(key_id: str, request: Request, db=Depends(db_session)):
+        """Remove a revoked key from the list for good.
+
+        Only a revoked key: deleting a live one would silently break whatever is
+        still calling with it, so revoking stays a separate, deliberate step.
+        """
+        dev = require_dev(request, db)
+        k = db.get(ApiKey, key_id)
+        if k is None or k.user_id != dev.user_id:
+            raise HTTPException(404, "unknown key")
+        if k.active:
+            raise HTTPException(409, "Revoke this key first. Deleting a live key "
+                                     "would break whatever is still using it "
+                                     "without telling you.")
+        purge_one(db, dev, k)
+        db.commit()
+        announce(dev.user_id, "keys.changed", {"reason": "purged"})
+        return {"key_id": key_id, "deleted": True}
+
+    @router.post("/v1/dev/keys/purge-revoked")
+    def purge_revoked(request: Request, db=Depends(db_session)):
+        dev = require_dev(request, db)
+        gone = []
+        for k in db.query(ApiKey).filter_by(user_id=dev.user_id).all():
+            if not k.active:
+                gone.append(k.key_id)
+                purge_one(db, dev, k)
+        db.commit()
+        if gone:
+            announce(dev.user_id, "keys.changed", {"reason": "purged"})
+        return {"deleted": gone, "count": len(gone)}
+
     @router.get("/v1/dev/usage")
     def usage(request: Request, db=Depends(db_session)):
         u = require_dev(request, db)
-        key_ids = [k.key_id for k in db.query(ApiKey).filter_by(user_id=u.user_id)]
-        if not key_ids:
-            return {"days": [], "total": 0}
-        rows = (db.query(ApiCallDay)
-                .filter(ApiCallDay.key_id.in_(key_ids))
-                .order_by(ApiCallDay.day.desc()).limit(60).all())
-        return {"days": [{"day": r.day, "key_id": r.key_id, "count": r.count,
-                          "rejected": r.rejected} for r in rows],
-                "total": sum(r.count for r in rows)}
+        keys = db.query(ApiKey).filter_by(user_id=u.user_id).all()
+        key_ids = [k.key_id for k in keys]
+        month = billing_month()
+        # Never short-circuit on "no keys": a purged key's calls still count
+        # against the month, and guarding on key_ids here is exactly how deleting
+        # your last key reset the budget.
+        used = month_total(db, u.user_id, month)
 
-    @router.delete("/v1/dev/account")
-    def delete_dev_account(request: Request, resp: Response, confirm: str = "",
-                           db=Depends(db_session)):
-        """Delete the developer account and revoke every key it holds.
+        days, hours, callers, per_key = [], [], [], []
+        if key_ids:
+            for r in (db.query(ApiCallDay)
+                      .filter(ApiCallDay.key_id.in_(key_ids))
+                      .order_by(ApiCallDay.day.desc()).limit(120).all()):
+                days.append({"day": r.day, "key_id": r.key_id,
+                             "count": r.count, "rejected": r.rejected})
+            for r in (db.query(ApiCallHour)
+                      .filter(ApiCallHour.key_id.in_(key_ids))
+                      .order_by(ApiCallHour.hour.desc()).limit(336).all()):
+                hours.append({"hour": r.hour, "count": r.count})
+            for r in (db.query(ApiCallIp)
+                      .filter(ApiCallIp.key_id.in_(key_ids))
+                      .order_by(ApiCallIp.count.desc()).limit(50).all()):
+                callers.append({"caller": r.ip_hash, "day": r.day,
+                                "count": r.count})
+            for k in keys:
+                per_key.append({"key_id": k.key_id, "name": k.name,
+                                "calls_total": k.call_count,
+                                "revoked": k.revoked_at is not None})
 
-        The shadow account that owns codes created through the API is left alone:
-        those codes may be in use, and deleting someone's codes is a different
-        decision from closing a developer account. Keys stop working immediately.
-        """
-        dev = require_dev(request, db)
-        if confirm != "DELETE":
-            raise HTTPException(422, 'Type DELETE to confirm.')
-        keys = db.query(ApiKey).filter_by(user_id=dev.user_id).all()
-        now = utcnow()
-        for k in keys:
-            k.revoked_at = k.revoked_at or now
-        email, name = dev.email, dev.name
-        (db.query(DevSession).filter_by(developer_id=dev.developer_id)
-           .delete(synchronize_session=False))
-        db.delete(db.get(Developer, dev.developer_id))
-        db.commit()
-        resp.delete_cookie(DEV_COOKIE, path="/")
-        delivery = None
-        if mailer:
-            delivery = mailer.send_dev_deleted(email, name, len(keys))
-        return {"deleted": True, "keys_revoked": len(keys),
-                "confirmation_email": delivery}
+        # Collapse the hour series so the console can draw a peak without doing
+        # arithmetic in the browser.
+        by_hour = {}
+        for h in hours:
+            by_hour[h["hour"]] = by_hour.get(h["hour"], 0) + h["count"]
+        peak_hour, peak_count = ("", 0)
+        for h, c in by_hour.items():
+            if c > peak_count:
+                peak_hour, peak_count = h, c
+        totals = sum(d["count"] for d in days)
+        rejected = sum(d["rejected"] for d in days)
+
+        return {
+            "month": month,
+            "limit_per_month": MONTHLY_CALL_CAP,
+            "limit_per_minute": RATE_PER_MINUTE,
+            "used_this_month": used,
+            "remaining_this_month": max(0, MONTHLY_CALL_CAP - used),
+            "resets_at": next_reset_iso(),
+            "all_time_total": totals,
+            "all_time_rejected": rejected,
+            "peak_hour": peak_hour,
+            "peak_hour_count": peak_count,
+            "hours": [{"hour": h, "count": c} for h, c in sorted(by_hour.items())],
+            "days": days,
+            "callers": callers,
+            "keys": per_key,
+            # Stated so nobody goes looking for addresses: these are salted,
+            # truncated hashes and the salt does not outlive the process.
+            "callers_are_hashed": True,
+        }
 
     # ── third-party API: signed requests only ───────────────────────────────
     async def authenticate(request: Request, db, need: str) -> ApiKey:
@@ -552,6 +678,8 @@ def make_router(SessionLocal, secret_box, check_secret, hash_secret,
             raise HTTPException(401, "That nonce has already been used. Send a "
                                      "fresh nonce per request.")
 
+        nonlocal _caller_hash
+        _caller_hash = caller_hash(request)
         raw = await request.body()
         if not check_signature(key, request.method, request.url.path, ts, nonce,
                                raw, signature):
@@ -573,6 +701,15 @@ def make_router(SessionLocal, secret_box, check_secret, hash_secret,
         recent.append(now)
         call_times[key_id] = recent
 
+        # And the account's monthly budget, across every key it holds.
+        month = billing_month()
+        spent = month_total(db, key.user_id, month)
+        if spent >= MONTHLY_CALL_CAP:
+            _count(db, key, rejected=True)
+            raise HTTPException(429, f"This account has used its {MONTHLY_CALL_CAP} "
+                                     f"calls for {month}. The budget is per account, "
+                                     f"not per key, so a new key will not raise it.")
+
         seen_nonces[nonce_key] = now + SIGNATURE_WINDOW_S
         key.last_used_at = utcnow()
         _count(db, key)
@@ -591,6 +728,25 @@ def make_router(SessionLocal, secret_box, check_secret, hash_secret,
         want = sign(secret, method, path, ts, nonce, raw)
         return hmac.compare_digest(want, presented)
 
+    def account_marker(user_id: str) -> str:
+        """Where a purged key's call history goes.
+
+        Deleting a revoked key must not delete the calls it made. If it did,
+        anyone could reset their monthly budget by revoking a key and removing it
+        — so the counts move here and keep counting against the account.
+        """
+        return f"acct:{user_id}"
+
+    def month_total(db, user_id: str, month: str) -> int:
+        """Successful calls this month, across every key the account holds and
+        every key it has already deleted."""
+        key_ids = [k.key_id for k in db.query(ApiKey).filter_by(user_id=user_id)]
+        key_ids.append(account_marker(user_id))
+        rows = (db.query(ApiCallDay)
+                .filter(ApiCallDay.key_id.in_(key_ids),
+                        ApiCallDay.day.like(f"{month}-%")).all())
+        return sum(r.count for r in rows)
+
     def _count(db, key: ApiKey, rejected: bool = False) -> None:
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         row = (db.query(ApiCallDay)
@@ -603,6 +759,23 @@ def make_router(SessionLocal, secret_box, check_secret, hash_secret,
         else:
             row.count += 1
             key.call_count += 1
+            now = datetime.now(timezone.utc)
+            hour = now.strftime("%Y-%m-%dT%H")
+            hrow = db.query(ApiCallHour).filter_by(key_id=key.key_id,
+                                                   hour=hour).first()
+            if hrow is None:
+                hrow = ApiCallHour(key_id=key.key_id, hour=hour, count=0)
+                db.add(hrow)
+            hrow.count += 1
+            if _caller_hash:
+                irow = (db.query(ApiCallIp)
+                        .filter_by(key_id=key.key_id, day=today,
+                                   ip_hash=_caller_hash).first())
+                if irow is None:
+                    irow = ApiCallIp(key_id=key.key_id, day=today,
+                                     ip_hash=_caller_hash, count=0)
+                    db.add(irow)
+                irow.count += 1
         db.commit()
 
     def code_dict(db, cred: Credential, share: Share) -> dict:
