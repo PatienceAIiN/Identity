@@ -191,12 +191,26 @@ a.dl:hover .dl-note, a.dl:hover .dl-ver { color: var(--pb-ink); opacity: .75; }
     --pb-bg: #17161c; --pb-surface: #201e26; --pb-ink: #ece9f2;
     --pb-inkInverse: #17161c; --pb-muted: #9b96a6;
     --pb-blue: #8fa4ea; --pb-liveInk: #4ddba4; --pb-revokedInk: #ff9a6d;
+    /* State tags: a tint of the state colour, with ink light enough to read on
+       it. Only two inks were overridden here and no backgrounds, which left the
+       amber "needs its key" tag as dark amber on amber. */
+    --pb-expiringInk: #ffcf6b;
+    --pb-liveBg: rgba(0,169,92,.20);
+    --pb-revokedBg: rgba(255,108,47,.20);
+    --pb-expiringBg: rgba(255,176,32,.20);
   }
 }
 :root[data-theme="dark"] {
   --pb-bg: #17161c; --pb-surface: #201e26; --pb-ink: #ece9f2;
   --pb-inkInverse: #17161c; --pb-muted: #9b96a6;
   --pb-blue: #8fa4ea; --pb-liveInk: #4ddba4; --pb-revokedInk: #ff9a6d;
+  /* State tags: a tint of the state colour, with ink light enough to read on
+     it. Only two inks were overridden here and no backgrounds, which left the
+     amber "needs its key" tag as dark amber on amber. */
+  --pb-expiringInk: #ffcf6b;
+  --pb-liveBg: rgba(0,169,92,.20);
+  --pb-revokedBg: rgba(255,108,47,.20);
+  --pb-expiringBg: rgba(255,176,32,.20);
 }
 :root[data-theme="dark"] .result,
 :root[data-theme="dark"] .modal-box,

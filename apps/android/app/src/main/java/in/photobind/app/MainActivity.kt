@@ -34,6 +34,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddAPhoto
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Login
@@ -720,12 +721,14 @@ private fun ScanScreen(api: Api) {
     var status by remember { mutableStateOf<String?>(null) }
     var detail by remember { mutableStateOf("") }
     var opens by remember { mutableStateOf("") }
+    var copied by remember { mutableStateOf(false) }
     var checking by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val ctx = LocalContext.current
 
     fun reset() {
-        decoded = null; status = null; detail = ""; opens = ""; checking = false
+        decoded = null; status = null; detail = ""; opens = ""
+        copied = false; checking = false
     }
 
     Column(Modifier.fillMaxSize().padding(horizontal = MD)
@@ -830,10 +833,31 @@ private fun ScanScreen(api: Api) {
                             style = MaterialTheme.typography.labelSmall,
                             color = AppColors.muted)
                     }
-                    // The code's own link, without the key that followed the #.
-                    Text(text.substringBefore('#'),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = AppColors.muted)
+                    // Shown without the key; copied with it. Displaying the
+                    // fragment puts a decryption key on a screen someone may be
+                    // holding up, but a link copied without it cannot be opened
+                    // in a browser at all — which is exactly the dead end of
+                    // pasting the visible address by hand.
+                    Row(Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Text(text.substringBefore('#'),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = AppColors.muted, modifier = Modifier.weight(1f))
+                        IconButton(onClick = {
+                            val cb = ctx.getSystemService(
+                                android.content.ClipboardManager::class.java)
+                            cb?.setPrimaryClip(android.content.ClipData.newPlainText(
+                                "Identity link", text))
+                            copied = true
+                        }, modifier = Modifier.size(36.dp)) {
+                            Icon(Icons.Filled.ContentCopy,
+                                contentDescription = "Copy the full link, including its key",
+                                tint = AppColors.ink, modifier = Modifier.size(18.dp))
+                        }
+                    }
+                    if (copied) Text(
+                        "Copied with its key — paste it anywhere and it opens.",
+                        style = MaterialTheme.typography.labelSmall, color = Live)
                 }
             }
             if (opens.startsWith("http://") || opens.startsWith("https://")) {
