@@ -46,6 +46,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 import shared
 from auth import (OTP_MAX_ATTEMPTS, OTP_MAX_SENDS, OTP_TTL, hash_otp, new_otp,
                   otp_matches)
+from blobs import PHOTOS
 from db import (Base, Credential, Photo, RevokedShare, ScanEvent, Share, User,
                 utcnow)
 
@@ -302,7 +303,8 @@ def sign(secret: str, method: str, path: str, timestamp: str, nonce: str,
 
 def make_router(SessionLocal, secret_box, check_secret, hash_secret,
                 new_user_id, resolve_user, encode_and_store,
-                notify=None, mailer=None, public_host="") -> APIRouter:
+                notify=None, mailer=None, public_host="",
+                engine=None) -> APIRouter:
     """
     secret_box encrypts and decrypts API key secrets (AES-256-GCM, key from the
     deployment secret). check_secret is the app's argon2 verifier, used for the
@@ -311,9 +313,9 @@ def make_router(SessionLocal, secret_box, check_secret, hash_secret,
     """
     router = APIRouter()
 
-    # Seen nonces, per key, with their expiry. In-process: correct for a single
-    # instance, and the honest limitation on more than one — production wants
-    # Redis here, the same as the rate limiter.
+    # Seen nonces live in Postgres (UsedNonce), not in this process and not in
+    # Redis: the check is a unique-constraint insert, so it cannot be weakened
+    # by an eviction. An evicted nonce is a replayable request.
     seen_nonces: dict[str, float] = {}
     # Salt lives only in this process: restarting reshuffles the buckets, which is
     # the right trade for never being able to reverse one into an address.
@@ -939,9 +941,13 @@ def make_router(SessionLocal, secret_box, check_secret, hash_secret,
         photo_id = cred.photo_id
         db.query(Credential).filter_by(credential_id=credential_id).delete(
             synchronize_session=False)
+        photo_row = db.get(Photo, photo_id)
+        object_key = photo_row.object_key if photo_row else None
         db.query(Photo).filter_by(photo_id=photo_id).delete(synchronize_session=False)
         db.expire_all()
         db.commit()
+        if object_key:
+            PHOTOS.delete(object_key)
         announce(key.user_id, "codes.changed", {"reason": "deleted-via-api"})
         return {"credential_id": credential_id, "deleted": True,
                 "copies_switched_off": len(shares)}
@@ -1115,6 +1121,11 @@ def make_router(SessionLocal, secret_box, check_secret, hash_secret,
         announce(k.user_id, "keys.changed", {"reason": "revoked-by-admin"})
         return {"key_id": key_id, "revoked": True}
 
+    if engine is not None:
+        from ops import make_ops_router
+        router.include_router(make_ops_router(
+            SessionLocal, db_session, require_admin, engine, public_host))
+
     return router
 
 
@@ -1148,6 +1159,8 @@ def delete_user_cascade(db, u: User) -> dict:
         (db.query(Credential).filter(Credential.credential_id.in_(cred_ids))
            .delete(synchronize_session=False))
     if photo_ids:
+        object_keys = [k for (k,) in db.query(Photo.object_key)
+                       .filter(Photo.photo_id.in_(photo_ids)).all() if k]
         (db.query(Photo).filter(Photo.photo_id.in_(photo_ids))
            .delete(synchronize_session=False))
     db.query(ApiKey).filter_by(user_id=u.user_id).delete(synchronize_session=False)
@@ -1159,4 +1172,6 @@ def delete_user_cascade(db, u: User) -> dict:
     db.expire_all()
     db.delete(db.get(User, u.user_id))
     db.commit()
+    for key in object_keys:
+        PHOTOS.delete(key)
     return {"codes_switched_off": revoked}

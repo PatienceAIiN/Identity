@@ -43,6 +43,7 @@ from auth import (COOKIE_NAME, OTP_MAX_ATTEMPTS, OTP_MAX_SENDS, OTP_TTL,
                   otp_matches, resolve_session, revoke_session)
 from sqlalchemy.orm import sessionmaker
 
+from blobs import PHOTOS
 from db import (Base, Card, CodeQuota, Credential, PendingSignup, Photo, Report,
                 RevokedShare,
                 ScanEvent, SessionToken, Share, TrialUsage, User,
@@ -261,6 +262,10 @@ def create_app(keys_dir: str | Path = "dev-keys", db_url: str | None = None,
     app = FastAPI(title="photobind API (production-shaped, DEV)", docs_url=None)
     import releases  # noqa: F401 — registers AppRelease on Base before create_all
     import platformapi  # noqa: F401 — registers ApiKey/AdminSession likewise
+    import ops  # noqa: F401 — and ErrorEvent/OpsRun. Left out of this list at
+                # first, which cost a 500 in production: ops was imported only
+                # when the router was built, which is after create_all, so its
+                # tables were never created
     engine = make_engine(db_url)
     # Schema setup is best-effort at startup: if the database is unreachable
     # right now, still boot and serve /healthz so the platform has a running
@@ -294,6 +299,22 @@ def create_app(keys_dir: str | Path = "dev-keys", db_url: str | None = None,
     global_bucket: list[float] = []
 
     cors = os.environ.get("PHOTOBIND_CORS_ORIGIN", "http://localhost:3000")
+    @app.exception_handler(Exception)
+    async def record_unhandled(request: Request, exc: Exception):
+        """Backstop for anything raised outside the access-log middleware.
+
+        That middleware catches almost everything first and records it there;
+        this covers the rest. The response body stays generic either way: an
+        error tracker is for us, and a stack trace is not something to hand a
+        caller.
+        """
+        from ops import record_exception
+        record_exception(SessionLocal, exc, request)
+        access_logger.exception("unhandled: %s %s", request.method,
+                                scrub_fragment(str(request.url)))
+        return JSONResponse({"detail": "Something went wrong on our side."},
+                            status_code=500)
+
     app.add_middleware(CORSMiddleware, allow_origins=[cors],
                        allow_credentials=True, allow_methods=["*"],
                        allow_headers=["*"])
@@ -305,9 +326,14 @@ def create_app(keys_dir: str | Path = "dev-keys", db_url: str | None = None,
                                 + (f"?{request.url.query}" if request.url.query else ""))
         try:
             response = await call_next(request)
-        except Exception:
+        except Exception as exc:
             # Full trace to the server log; the client gets nothing internal.
             access_logger.exception("EXC %s %s", request.method, target)
+            # Recorded here rather than in an exception_handler: this middleware
+            # catches the exception first, so a handler registered on the app
+            # would never see it.
+            from ops import record_exception
+            record_exception(SessionLocal, exc, request)
             return JSONResponse({"detail": "internal error"}, status_code=500)
         # Baseline security headers everywhere. The resolution route adds a
         # stricter CSP on top; these apply to the whole site.
@@ -759,7 +785,10 @@ def create_app(keys_dir: str | Path = "dev-keys", db_url: str | None = None,
         if cred_ids:
             (db.query(Credential).filter(Credential.credential_id.in_(cred_ids))
                .delete(synchronize_session=False))
+        object_keys: list[str] = []
         if photo_ids:
+            object_keys = [k for (k,) in db.query(Photo.object_key)
+                           .filter(Photo.photo_id.in_(photo_ids)).all() if k]
             (db.query(Photo).filter(Photo.photo_id.in_(photo_ids))
                .delete(synchronize_session=False))
         (db.query(Card).filter_by(user_id=u.user_id)
@@ -771,6 +800,11 @@ def create_app(keys_dir: str | Path = "dev-keys", db_url: str | None = None,
         db.expire_all()
         db.delete(db.get(User, u.user_id))
         db.commit()
+        # After the commit, deliberately. If the delete fails the account is
+        # still gone; an orphaned object is waste that the sweeper collects,
+        # whereas failing here would leave the account half-deleted.
+        for key in object_keys:
+            PHOTOS.delete(key)
         resp.delete_cookie(COOKIE_NAME, path="/")
         # Confirm in writing what was destroyed — deletion is irreversible and
         # the person should have a record of it.
@@ -860,7 +894,9 @@ def create_app(keys_dir: str | Path = "dev-keys", db_url: str | None = None,
                             signing_key_id=keystore.active_key_id(),
                             created_at=utcnow().isoformat())
         signed = sign_binding(rec, keystore)
-        db.add(Photo(photo_id=photo_id, user_id=u.user_id, image_png=data))
+        object_key = PHOTOS.put(photo_id, data)
+        db.add(Photo(photo_id=photo_id, user_id=u.user_id, object_key=object_key,
+                     image_png=None if object_key else data))
         # Insert the photo before the credential that points at it. Nothing in
         # the ORM establishes that order: Credential.photo_id is a plain foreign
         # key with no relationship() behind it, so the unit of work sorted the
@@ -1101,12 +1137,16 @@ def create_app(keys_dir: str | Path = "dev-keys", db_url: str | None = None,
             (db.query(Share).filter(Share.share_id.in_(share_ids))
                .delete(synchronize_session=False))
         photo_id = cred.photo_id
+        photo_row = db.get(Photo, photo_id)
+        object_key = photo_row.object_key if photo_row else None
         db.query(Credential).filter_by(credential_id=credential_id).delete(
             synchronize_session=False)
         db.query(Photo).filter_by(photo_id=photo_id).delete(
             synchronize_session=False)
         db.expire_all()
         db.commit()
+        if object_key:
+            PHOTOS.delete(object_key)
         notify(u.user_id, "codes.changed", {"reason": "deleted",
                                             "credential_id": credential_id})
         return {"credential_id": credential_id, "deleted": True,
@@ -1130,7 +1170,12 @@ def create_app(keys_dir: str | Path = "dev-keys", db_url: str | None = None,
         p = db.get(Photo, photo_id)
         if p is None or p.user_id != u.user_id:
             raise HTTPException(404, "unknown photo")
-        return Response(p.image_png, media_type="image/png")
+        data = PHOTOS.read(p.object_key) if p.object_key else p.image_png
+        if not data:
+            # The row exists and the object does not. Say so plainly rather than
+            # returning an empty 200 that renders as a broken image.
+            raise HTTPException(502, "photo is temporarily unavailable")
+        return Response(data, media_type="image/png")
 
     # -- feedback, bug reports, crash reports ---------------------------------
     @app.post("/v1/reports", status_code=201)
@@ -1353,7 +1398,9 @@ def create_app(keys_dir: str | Path = "dev-keys", db_url: str | None = None,
                             signing_key_id=keystore.active_key_id(),
                             created_at=utcnow().isoformat())
         signed = sign_binding(rec, keystore)
-        db.add(Photo(photo_id=photo_id, user_id=user_id, image_png=data))
+        object_key = PHOTOS.put(photo_id, data)
+        db.add(Photo(photo_id=photo_id, user_id=user_id, object_key=object_key,
+                     image_png=None if object_key else data))
         db.flush()          # photos before credentials, as the foreign key needs
         db.add(Credential(credential_id=credential_id, user_id=user_id,
                           photo_id=photo_id, ciphertext_b64=ciphertext_b64,
@@ -1373,7 +1420,7 @@ def create_app(keys_dir: str | Path = "dev-keys", db_url: str | None = None,
         lambda stored, presented: check_password(stored, presented),
         hash_password, new_user_id,
         lambda request, db: resolve_session(db, request.cookies.get(COOKIE_NAME)),
-        encode_and_store, notify, mailer, PUBLIC_HOST))
+        encode_and_store, notify, mailer, PUBLIC_HOST, engine))
 
     # -- static web app --------------------------------------------------------
     @app.get("/static/{path:path}")

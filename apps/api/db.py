@@ -64,9 +64,12 @@ class Photo(Base):
     __tablename__ = "photos"
     photo_id: Mapped[str] = mapped_column(String, primary_key=True)
     user_id: Mapped[str] = mapped_column(ForeignKey("users.user_id"), index=True)
-    # Dev storage: fused image bytes live in the DB. Production: S3 + SSE-KMS
-    # with presigned URLs (§8.7); swap this column for an object key.
-    image_png: Mapped[bytes] = mapped_column(LargeBinary)
+    # Exactly one of these holds the image. object_key points into R2 and is
+    # what production uses; image_png is the fallback for a checkout with no
+    # cloud credentials, and still holds the bytes for rows written before the
+    # move. Readers must check object_key first.
+    image_png: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    object_key: Mapped[str | None] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
