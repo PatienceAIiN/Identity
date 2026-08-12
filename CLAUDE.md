@@ -199,6 +199,13 @@ Do not parallelise. Each phase gates the next.
   egress (10.128.0.2, ufw rule + GCP rule, never public). Email via Brevo HTTP
   API. APK releases in Cloudflare R2 bucket `identity`. Health: /v1/health.
   Secrets for local scripts live in run/ (gitignored).
+- **Consumer scanner: Google Lens CONFIRMED WORKING** (owner test, 2026-08-11,
+  live fused code scanned from a screen). This is the first real-camera
+  confirmation and it validates the product's central claim. Scope it honestly:
+  one scanner, owner-run, at least one code, on-screen rather than printed. Still
+  untested: native iOS camera, stock Android camera, printed output, and the
+  degradation matrix through a real lens. "Works with Google Lens" is now a
+  claim we can make; "works with any camera" is not yet.
 - Phase status: **Phase 0 strict 3-decoder gate: FAILED (permanent record —
   do not rewrite as passed).** Owner decision 2026-08-10 ("Option A+"):
   proceed photo-dominant under a new **Consumer Scanner Acceptance Gate**:

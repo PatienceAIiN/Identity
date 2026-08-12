@@ -23,7 +23,7 @@ import logging
 import os
 import secrets
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from sqlalchemy import text
@@ -891,7 +891,7 @@ def create_app(keys_dir: str | Path = "dev-keys", db_url: str | None = None,
                 "resets_at": next_reset_iso()}
 
     @app.get("/v1/me/usage")
-    def my_usage(request: Request, db=Depends(get_db)):
+    def my_usage(request: Request, days: int = 30, db=Depends(get_db)):
         """This account's own activity.
 
         Deliberately separate from the developer console's usage: that one is
@@ -928,10 +928,16 @@ def create_app(keys_dir: str | Path = "dev-keys", db_url: str | None = None,
         # so the chart shows when they happened and not just how many there were.
         share_ids = [sh.share_id for sh in shares]
         by_day, by_hour = {}, {}
+        # Bounded by time and by row count. Reading every scan event an account has
+        # ever had is fine at ten codes and falls over at ten thousand — and the
+        # charts only ever draw a window anyway.
+        days = max(1, min(days, 365))
+        since = utcnow() - timedelta(days=days)
         if share_ids:
             for ev in (db.query(ScanEvent)
-                       .filter(ScanEvent.share_id.in_(share_ids))
-                       .order_by(ScanEvent.ts.desc()).limit(5000).all()):
+                       .filter(ScanEvent.share_id.in_(share_ids),
+                               ScanEvent.ts >= since)
+                       .order_by(ScanEvent.ts.desc()).limit(20000).all()):
                 d = ev.ts.strftime("%Y-%m-%d")
                 by_day[d] = by_day.get(d, 0) + 1
                 by_hour[ev.ts.strftime("%Y-%m-%dT%H")] = \
