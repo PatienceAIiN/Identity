@@ -90,7 +90,13 @@ img { display: block; max-width: 100%; }
 .panel { border: 1px solid rgba(32,30,29,.14); padding: 16px; background: var(--pb-surface); }
 /* For images: no padding, no border, nothing competing with the picture. */
 .panel.flush { padding: 0; border: 0; background: transparent; }
-.result { border-top: 4px solid var(--pb-live); background: #fff; padding: 24px; }
+/* Background and text colour come from the same theme, always. This hardcoded
+   #fff while the text colour was inherited from the page, so in a dark theme it
+   rendered light text on a white card — a scan result nobody could read. */
+.result { border-top: 4px solid var(--pb-live); background: var(--pb-bg);
+          color: var(--pb-ink); padding: 24px; }
+.result p, .result h4 { color: var(--pb-ink); }
+.result .muted, .result p.muted { color: var(--pb-muted); }
 .result.revoked { border-top-color: var(--pb-revoked); }
 .result.expiring { border-top-color: var(--pb-expiring); }
 .codebox {

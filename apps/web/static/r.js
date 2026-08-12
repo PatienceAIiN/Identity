@@ -13,10 +13,14 @@
     atob(s.replaceAll("-", "+").replaceAll("_", "/") + "=".repeat((4 - s.length % 4) % 4)),
     (c) => c.charCodeAt(0));
 
-  function render(kind, title, body, payload) {
+  /* `kind` picks the colour; `label` is the word on the tag. They were the same
+     thing, so the missing-key case — which borrows the amber styling — announced
+     itself as "Expired". The code had not expired; the link had lost its key. */
+  function render(kind, title, body, payload, label) {
     const cls = { live: "", revoked: "revoked", expiring: "expiring" }[kind] || "revoked";
     const tag = { live: "tag-live", revoked: "tag-revoked", expiring: "tag-expiring" }[kind] || "tag-revoked";
-    const label = { live: "Live", revoked: "Revoked", expiring: "Expired" }[kind] || "Unavailable";
+    label = label || { live: "Live", revoked: "Revoked", expiring: "Expired" }[kind]
+            || "Unavailable";
     out.innerHTML = "";
     const card = document.createElement("div");
     card.className = "result " + cls;
@@ -73,8 +77,10 @@
     const key = location.hash.slice(1);
     if (!key)
       return render("expiring", "This link is missing its key",
-                    "The part after the # was dropped somewhere — some apps strip it. " +
-                    "Open the original link, or ask the owner to send it again.");
+                    "The part after the # was dropped somewhere — some apps strip it, " +
+                    "and typing the address by hand leaves it out. Open the original " +
+                    "link, or ask the owner to send it again.",
+                    null, "Needs its key");
     try {
       const cryptoKey = await crypto.subtle.importKey(
         "raw", b64uDec(key), "AES-GCM", false, ["decrypt"]);
