@@ -39,9 +39,11 @@ from datetime import date, datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import ForeignKey, Integer, String, DateTime, func
+from sqlalchemy import (DateTime, ForeignKey, Integer, String,
+                        UniqueConstraint, func)
 from sqlalchemy.orm import Mapped, mapped_column
 
+import shared
 from auth import (OTP_MAX_ATTEMPTS, OTP_MAX_SENDS, OTP_TTL, hash_otp, new_otp,
                   otp_matches)
 from db import (Base, Credential, Photo, RevokedShare, ScanEvent, Share, User,
@@ -147,6 +149,23 @@ class ApiCallHour(Base):
     key_id: Mapped[str] = mapped_column(String, index=True)
     hour: Mapped[str] = mapped_column(String, index=True)      # YYYY-MM-DDTHH
     count: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class UsedNonce(Base):
+    """A nonce that has been spent, so it can never be spent again.
+
+    In Postgres rather than a cache, and the check is the insert: a unique
+    constraint violation *is* the replay. That is stricter than looking first and
+    inserting after, which has a window between the two, and it cannot be
+    weakened by eviction — the reason this did not go on the VM's shared Redis,
+    which runs allkeys-lru at 32 MB. An evicted nonce is a replayable request.
+    """
+    __tablename__ = "used_nonces"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    key_id: Mapped[str] = mapped_column(String, index=True)
+    nonce: Mapped[str] = mapped_column(String)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    __table_args__ = (UniqueConstraint("key_id", "nonce", name="uq_key_nonce"),)
 
 
 class Developer(Base):
@@ -296,11 +315,31 @@ def make_router(SessionLocal, secret_box, check_secret, hash_secret,
     # instance, and the honest limitation on more than one — production wants
     # Redis here, the same as the rate limiter.
     seen_nonces: dict[str, float] = {}
-    call_times: dict[str, list[float]] = {}
     # Salt lives only in this process: restarting reshuffles the buckets, which is
     # the right trade for never being able to reverse one into an address.
-    ip_salt = secrets.token_hex(16)
+    # A shared salt when the deployment provides one, so every instance hashes an
+    # address to the same bucket. Without it, per-instance random — which is still
+    # unlinkable, just not comparable across instances.
+    ip_salt = os.environ.get("PHOTOBIND_IP_SALT") or secrets.token_hex(16)
     _caller_hash = ""
+
+    def claim_nonce(db, key_id: str, nonce: str) -> bool:
+        """Spend a nonce. True if this is the first time; False if it is a replay.
+
+        Sweeps expired rows opportunistically rather than on a timer: a request is
+        the only thing that creates them, so it is the right moment to clear them.
+        """
+        db.query(UsedNonce).filter(UsedNonce.expires_at < utcnow()).delete(
+            synchronize_session=False)
+        db.add(UsedNonce(key_id=key_id, nonce=nonce[:200],
+                         expires_at=utcnow() + timedelta(seconds=SIGNATURE_WINDOW_S)))
+        try:
+            db.commit()
+            return True
+        except Exception:
+            # The unique constraint fired: this pair has been used already.
+            db.rollback()
+            return False
 
     def caller_hash(request: Request) -> str:
         who = request.client.host if request.client else ""
@@ -669,11 +708,7 @@ def make_router(SessionLocal, secret_box, check_secret, hash_secret,
                                      f"Check the clock on the calling machine.")
 
         now = time.time()
-        for used, expiry in list(seen_nonces.items()):
-            if expiry < now:
-                seen_nonces.pop(used, None)
-        nonce_key = f"{key_id}:{nonce}"
-        if nonce_key in seen_nonces:
+        if not claim_nonce(db, key_id, nonce):
             _count(db, key, rejected=True)
             raise HTTPException(401, "That nonce has already been used. Send a "
                                      "fresh nonce per request.")
@@ -692,14 +727,13 @@ def make_router(SessionLocal, secret_box, check_secret, hash_secret,
 
         # Checked only once the signature has proved the caller holds the secret,
         # so nobody can burn someone else's allowance by spraying forged calls.
-        recent = [t for t in call_times.get(key_id, []) if now - t < 60]
-        if len(recent) >= RATE_PER_MINUTE:
+        # Shared across instances when Redis is configured, so the ceiling is the
+        # ceiling rather than the ceiling times the instance count.
+        if shared.hits_in_window(f"key:{key_id}", 60) > RATE_PER_MINUTE:
             _count(db, key, rejected=True)
             raise HTTPException(429, f"{RATE_PER_MINUTE} requests a minute per "
                                      f"key. Retry in a moment.",
                                 headers={"Retry-After": "60"})
-        recent.append(now)
-        call_times[key_id] = recent
 
         # And the account's monthly budget, across every key it holds.
         month = billing_month()
@@ -710,7 +744,6 @@ def make_router(SessionLocal, secret_box, check_secret, hash_secret,
                                      f"calls for {month}. The budget is per account, "
                                      f"not per key, so a new key will not raise it.")
 
-        seen_nonces[nonce_key] = now + SIGNATURE_WINDOW_S
         key.last_used_at = utcnow()
         _count(db, key)
         db.commit()

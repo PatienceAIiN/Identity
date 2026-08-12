@@ -483,3 +483,32 @@ def test_purging_is_scoped_to_the_owner_and_bulk_only_takes_revoked(server):
     assert r.status_code == 200 and r.json()["count"] == 1
     listed = a.get("/v1/dev/keys").text
     assert a_dead not in listed and a_live in listed, "bulk purge took a live key"
+
+
+def test_a_replayed_nonce_is_refused_durably(server):
+    """The replay check must not depend on process memory.
+
+    It used to be an in-process set, which is correct on one instance and useless
+    on two. It is now a unique constraint, so the record survives a restart and
+    cannot be evicted — the reason it did not go on a shared LRU cache.
+    """
+    base, outbox = server
+    c = dev_client(base, "replay@example.org", outbox)
+    key_id, secret = mint_key(c, scopes=["codes:read"])
+
+    ts, nonce = str(int(time.time())), "spent-once"
+    first = signed(base, key_id, secret, "GET", "/api/v1/codes", ts=ts, nonce=nonce)
+    assert first.status_code == 200
+
+    # Same nonce, and also the same nonce with a *fresh* timestamp and signature:
+    # a replayer controls both, so neither may get through.
+    again = signed(base, key_id, secret, "GET", "/api/v1/codes", ts=ts, nonce=nonce)
+    assert again.status_code == 401 and "nonce" in again.text.lower()
+    later = signed(base, key_id, secret, "GET", "/api/v1/codes",
+                   ts=str(int(time.time())), nonce=nonce)
+    assert later.status_code == 401, "a fresh signature reused an old nonce"
+
+    # A different key may use the same nonce string — the claim is per key.
+    other_id, other_secret = mint_key(c, scopes=["codes:read"])
+    assert signed(base, other_id, other_secret, "GET", "/api/v1/codes",
+                  nonce=nonce).status_code == 200

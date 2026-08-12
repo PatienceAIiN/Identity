@@ -239,3 +239,39 @@ def test_unknown_ids_404_then_rate_limited(server):
         codes.append(httpx.get(f"{server['base']}/r/nonexistent{i}").status_code)
     assert set(codes[:RATE_LIMIT_MAX]) == {404}
     assert codes[-1] == 429
+
+
+def test_enumeration_guard_counts_the_caller_not_the_proxy(server, monkeypatch):
+    """Two different callers behind the same proxy must not share one budget.
+
+    This guards a bug that was live in production: the guard was keyed on
+    request.client.host, which behind Cloud Run is always the same internal
+    address, and behind Cloudflare rotates per edge PoP. One attacker's requests
+    scattered across many buckets while unrelated visitors shared one, so the
+    per-caller limit was decorative and only the global cap did any work.
+    """
+    import shared
+    import trial
+
+    shared.reset_local()
+    monkeypatch.setattr(trial, "proxy_hops", lambda: 2)
+
+    def burn(client_ip, n):
+        # The chain a real request arrives with: caller-supplied value first,
+        # then Cloudflare's view of the client, then the edge address.
+        xff = f"1.2.3.4, {client_ip}, 172.71.0.1"
+        return [
+            httpx.get(f"{server['base']}/r/absent{client_ip}-{i}",
+                      headers={"x-forwarded-for": xff}).status_code
+            for i in range(n)
+        ]
+
+    assert set(burn("203.0.113.7", RATE_LIMIT_MAX)) == {404}
+    assert burn("203.0.113.7", 1) == [429]          # that caller is now spent
+    assert burn("198.51.100.9", 1) == [404]         # a different caller is not
+
+    # And the caller cannot buy itself a fresh budget by claiming a new address:
+    # the entry it controls is the first one, which is never the one counted.
+    spoof = "9.9.9.9, 203.0.113.7, 172.71.0.1"
+    assert httpx.get(f"{server['base']}/r/absent-spoof",
+                     headers={"x-forwarded-for": spoof}).status_code == 429

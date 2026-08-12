@@ -35,6 +35,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel, ConfigDict
 
 import auth as auth_mod
+import shared
 import mailer
 from auth import (COOKIE_NAME, OTP_MAX_ATTEMPTS, OTP_MAX_SENDS, OTP_TTL,
                   TERMS_VERSION, GoogleVerifier, check_password, hash_otp,
@@ -256,6 +257,7 @@ def _valid_b64(v: str, what: str) -> str:
 def create_app(keys_dir: str | Path = "dev-keys", db_url: str | None = None,
                google_verifier=None, thresholds: Thresholds | None = None) -> FastAPI:
     configure_logging()
+    shared.reset_local()      # fresh fallback counters per app instance
     app = FastAPI(title="photobind API (production-shaped, DEV)", docs_url=None)
     import releases  # noqa: F401 — registers AppRelease on Base before create_all
     import platformapi  # noqa: F401 — registers ApiKey/AdminSession likewise
@@ -341,15 +343,18 @@ def create_app(keys_dir: str | Path = "dev-keys", db_url: str | None = None,
             raise HTTPException(401, "Sign in to continue.")
         return user
 
-    def rate_limit(client: str) -> None:
-        now = time.monotonic()
-        for b in (buckets.setdefault(client, []), global_bucket):
-            b[:] = [t for t in b if now - t < RATE_LIMIT_WINDOW_S]
-        if (len(buckets[client]) >= RATE_LIMIT_MAX
-                or len(global_bucket) >= RATE_LIMIT_GLOBAL_MAX):
-            raise HTTPException(429, "rate limited")
-        buckets[client].append(now)
-        global_bucket.append(now)
+    def rate_limit(who: str) -> None:
+        """Per-caller and global ceiling on the public resolution route.
+
+        This is the enumeration guard from CLAUDE.md §8.3, so it is the one that
+        most wants to be shared: counted per process, a second instance simply
+        doubles what an attacker is allowed to walk.
+        """
+        if shared.hits_in_window(f"r:{who}", RATE_LIMIT_WINDOW_S) > RATE_LIMIT_MAX:
+            raise HTTPException(429, "Too many lookups. Slow down.")
+        if shared.hits_in_window("r:global", RATE_LIMIT_WINDOW_S) > RATE_LIMIT_GLOBAL_MAX:
+            raise HTTPException(429, "The service is busy. Try again shortly.")
+
 
     def set_cookie(resp: Response, token: str):
         resp.set_cookie(COOKIE_NAME, token, httponly=True, samesite="lax",
@@ -578,7 +583,8 @@ def create_app(keys_dir: str | Path = "dev-keys", db_url: str | None = None,
         under the same strict policy as the resolution page: this URL is handed to
         strangers, and the less it can execute the less it can leak.
         """
-        rate_limit(request.client.host if request.client else "unknown")
+        from trial import unforgeable_address
+        rate_limit(unforgeable_address(request))
         card = db.get(Card, card_id)
         if card is None:
             raise HTTPException(404, "unknown card")
@@ -1193,7 +1199,8 @@ def create_app(keys_dir: str | Path = "dev-keys", db_url: str | None = None,
                        "Cache-Control": "no-store"}
             return Response(html, media_type="text/html", headers=headers)
 
-        rate_limit(request.client.host if request.client else "unknown")
+        from trial import unforgeable_address
+        rate_limit(unforgeable_address(request))
         share = (db.query(Share)
                  .filter_by(opaque_resolution_id=opaque_resolution_id).first())
         if share is None:
